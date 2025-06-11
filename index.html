@@ -1,68 +1,8 @@
-
 <!DOCTYPE html>
-
 <html>
 <head>
-<title>Protect Bulk Order CSV Generator</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
-function sendToDelhivery() {
-    if (allTemplates.length === 0) return alert("Please generate orders first.");
-    
-    let results = "";
-    allTemplates.forEach((order, index) => {
-        const payload = {
-            format: "json",
-            pickup_location: "GAMES PLANET",
-            shipments: [
-                {
-                    order: order["*Sale Order Number"],
-                    payment_mode: order["*Payment Mode"].toLowerCase(),
-                    name: order["*Customer Name"],
-                    address: order["*Shipping Address Line1"],
-                    address_2: order["Shipping Address Line2"],
-                    city: order["*Shipping City"],
-                    state: order["*Shipping State"],
-                    country: "India",
-                    phone: order["*Customer Phone"],
-                    email: order["Customer Email"],
-                    pin: order["*Shipping Pincode"],
-                    products_desc: order["*Item Sku Name"],
-                    total_amount: parseInt(order["*Unit Item Price"]),
-                    cod_amount: parseInt(order["COD Amount"]),
-                    quantity: parseInt(order["*Quantity Ordered"]),
-                    weight: parseInt(order["Weight (gm)"]),
-                    length: parseInt(order["Length (cm)"]),
-                    breadth: parseInt(order["Breadth (cm)"]),
-                    height: parseInt(order["Height (cm)"])
-                }
-            ]
-        };
-
-        fetch("https://track.delhivery.com/api/cmu/create.json", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": "Token 0585e70152d32c9cc34a44c16e41c62c297b3c80"
-            },
-            body: JSON.stringify(payload)
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data && data.packages && data.packages[0] && data.packages[0].waybill) {
-                results += "Order " + (index+1) + ": Success ✅ - AWB: " + data.packages[0].waybill + "\n";
-            } else {
-                results += "Order " + (index+1) + ": ❌ Failed - " + JSON.stringify(data) + "\n";
-            }
-            document.getElementById("output").textContent = results;
-        })
-        .catch(err => {
-            results += "Order " + (index+1) + ": ❌ Error - " + err + "\n";
-            document.getElementById("output").textContent = results;
-        });
-    });
-    
-}
-</script>
+<title>Bulk Order CSV Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         textarea { width: 100%; height: 160px; margin-bottom: 10px; font-size: 14px; }
@@ -76,7 +16,7 @@ function sendToDelhivery() {
 <div id="ordersContainer"></div>
 <button onclick="addOrder()">+ Add Another Order</button>
 <button onclick="generateAll()">Generate All</button>
-<button onclick="downloadCSV()">Download Protect CSV</button>
+<button onclick="downloadCSV()">Download CSV</button>
 <button onclick="downloadXLSX()">Download XLSX</button>
 <button onclick="sendToDelhivery()">Send to Delhivery</button>
 <h2>All Orders Preview:</h2>
@@ -189,8 +129,8 @@ function parseOrder(input) {
         "Seller Address Line2": "Uttar Pradesh",
         "Seller City": "Rampur",
         "Seller State": "Uttar Pradesh",
-        "Seller Pincode": "244901",
-        "Protect Category Id": "Electronics and Appliances"
+        "Seller Pincode": "244901"
+        // "Category Id": "Electronics and Appliances" // <-- optional, not "Protect" now
     };
 }
 
@@ -224,7 +164,7 @@ function downloadCSV() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", "Protect_BulkOrders.csv");
+    link.setAttribute("download", "BulkOrders.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -235,7 +175,7 @@ function downloadXLSX() {
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(allTemplates);
     XLSX.utils.book_append_sheet(wb, ws, "Orders");
-    XLSX.writeFile(wb, "Protect_BulkOrders.xlsx");
+    XLSX.writeFile(wb, "BulkOrders.xlsx");
 }
 
 window.onload = () => addOrder();
@@ -408,5 +348,6 @@ function generateInvoice() {
 
     doc.save("GamesPlanet_Invoice.pdf");
 }
-</script></body>
+</script>
+</body>
 </html>
