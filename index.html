@@ -1,0 +1,412 @@
+
+<!DOCTYPE html>
+
+<html>
+<head>
+<title>Protect Bulk Order CSV Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
+function sendToDelhivery() {
+    if (allTemplates.length === 0) return alert("Please generate orders first.");
+    
+    let results = "";
+    allTemplates.forEach((order, index) => {
+        const payload = {
+            format: "json",
+            pickup_location: "GAMES PLANET",
+            shipments: [
+                {
+                    order: order["*Sale Order Number"],
+                    payment_mode: order["*Payment Mode"].toLowerCase(),
+                    name: order["*Customer Name"],
+                    address: order["*Shipping Address Line1"],
+                    address_2: order["Shipping Address Line2"],
+                    city: order["*Shipping City"],
+                    state: order["*Shipping State"],
+                    country: "India",
+                    phone: order["*Customer Phone"],
+                    email: order["Customer Email"],
+                    pin: order["*Shipping Pincode"],
+                    products_desc: order["*Item Sku Name"],
+                    total_amount: parseInt(order["*Unit Item Price"]),
+                    cod_amount: parseInt(order["COD Amount"]),
+                    quantity: parseInt(order["*Quantity Ordered"]),
+                    weight: parseInt(order["Weight (gm)"]),
+                    length: parseInt(order["Length (cm)"]),
+                    breadth: parseInt(order["Breadth (cm)"]),
+                    height: parseInt(order["Height (cm)"])
+                }
+            ]
+        };
+
+        fetch("https://track.delhivery.com/api/cmu/create.json", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Token 0585e70152d32c9cc34a44c16e41c62c297b3c80"
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.packages && data.packages[0] && data.packages[0].waybill) {
+                results += "Order " + (index+1) + ": Success ✅ - AWB: " + data.packages[0].waybill + "\n";
+            } else {
+                results += "Order " + (index+1) + ": ❌ Failed - " + JSON.stringify(data) + "\n";
+            }
+            document.getElementById("output").textContent = results;
+        })
+        .catch(err => {
+            results += "Order " + (index+1) + ": ❌ Error - " + err + "\n";
+            document.getElementById("output").textContent = results;
+        });
+    });
+    
+}
+</script>
+<style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        textarea { width: 100%; height: 160px; margin-bottom: 10px; font-size: 14px; }
+        button { padding: 10px 15px; margin: 5px 5px 15px 0; }
+        pre { background-color: #f4f4f4; padding: 10px; white-space: pre-wrap; font-size: 13px; }
+        .order-block { border: 1px solid #ccc; padding: 10px; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+<h2>Paste Each Order Below (COD or Prepaid)</h2>
+<div id="ordersContainer"></div>
+<button onclick="addOrder()">+ Add Another Order</button>
+<button onclick="generateAll()">Generate All</button>
+<button onclick="downloadCSV()">Download Protect CSV</button>
+<button onclick="downloadXLSX()">Download XLSX</button>
+<button onclick="sendToDelhivery()">Send to Delhivery</button>
+<h2>All Orders Preview:</h2>
+<pre id="output"></pre>
+<script>
+let allTemplates = [];
+
+function addOrder(text = "") {
+    const container = document.getElementById("ordersContainer");
+    const block = document.createElement("div");
+    block.className = "order-block";
+    block.innerHTML = '<textarea placeholder="Paste order info...">' + text + '</textarea>';
+    container.appendChild(block);
+}
+
+function extractField(text, label) {
+    const regex = new RegExp(label + ":\s*(.+)", "i");
+    const match = text.match(regex);
+    return match ? match[1].trim() : "";
+}
+
+function parseOrder(input) {
+    const requiredFields = ["Order ID", "Name", "Mobile", "Address", "Landmark", "Pincode", "State", "District/City", "Post office", "Product", "Variant", "Base Price", "Amount paid"];
+    let errors = [];
+    for (let label of requiredFields) {
+        if (!input.match(new RegExp(label + ":", "i"))) {
+            errors.push(label);
+        }
+    }
+    if (errors.length > 0) {
+        throw new Error("Missing: " + errors.join(", "));
+    }
+
+    const orderID = extractField(input, "Order ID");
+    const name = extractField(input, "Name");
+    const mobile = extractField(input, "Mobile");
+    const altMobile = extractField(input, "Alt Mobile");
+    const email = extractField(input, "Email");
+    const address = extractField(input, "Address");
+    const landmark = extractField(input, "Landmark");
+    const pincode = extractField(input, "Pincode");
+    const state = extractField(input, "State");
+    const city = extractField(input, "District/City");
+    const postOffice = extractField(input, "Post office");
+    const product = extractField(input, "Product");
+    const variant = extractField(input, "Variant");
+    const basePrice = extractField(input, "Base Price").replace("₹", "").trim();
+    const paid = extractField(input, "Amount paid").replace("₹", "").trim();
+    const cod = extractField(input, "Rest Amount on Delivery").replace("₹", "").trim() || "0";
+
+    let paymentMode = "COD";
+    let codAmount = cod;
+    if (input.includes("🟢") || input.toLowerCase().includes("prepaid")) {
+        paymentMode = "Prepaid";
+        codAmount = "0";
+    }
+
+    let length = "", breadth = "", height = "", weight = "";
+    if (product.includes("M33")) {
+        length = 17; breadth = 12; height = 11; weight = 465;
+    } else if (product.includes("GD30v2 Special")) {
+        length = 17; breadth = 12; height = 12; weight = 800;
+    } else if (product.includes("GD30")) {
+        length = 17; breadth = 12; height = 12; weight = 489;
+    } else if (product.includes("FMCB") || product.includes("USB")) {
+        length = 10; breadth = 10; height = 2; weight = 100;
+    } else if (product.toLowerCase().includes("gamepad")) {
+        length = 17; breadth = 10; height = 5; weight = 200;
+    }
+
+    const addressLine2 = `${landmark} | Post: ${postOffice} | Alt: ${altMobile}`.trim();
+
+    return {
+        "*Sale Order Number": orderID,
+        "*Pickup Location Name": "GAMES PLANET",
+        "*Transport Mode": "SURFACE",
+        "*Payment Mode": paymentMode,
+        "COD Amount": codAmount,
+        "*Customer Name": name,
+        "*Customer Phone": mobile,
+        "*Shipping Address Line1": address,
+        "Shipping Address Line2": addressLine2,
+        "*Shipping City": city,
+        "*Shipping State": state,
+        "*Shipping Pincode": pincode,
+        "*Item Sku Code": variant,
+        "*Item Sku Name": product + " – " + variant,
+        "*Quantity Ordered": 1,
+        "Packaging Type": "Flyer",
+        "*Unit Item Price": basePrice,
+        "Length (cm)": length,
+        "Breadth (cm)": breadth,
+        "Height (cm)": height,
+        "Weight (gm)": weight,
+        "Fragile Shipment": "No",
+        "Discount Type": "",
+        "Discount Value": "",
+        "Tax Class Code": "",
+        "Customer Email": email,
+        "Billing Address same as Shipping Address": "Yes",
+        "Billing Address Line1": address,
+        "Billing Address Line2": addressLine2,
+        "Billing City": city,
+        "Billing State": state,
+        "Billing Pincode": pincode,
+        "e-Way Bill Number": "",
+        "Seller Name": "Games Planet",
+        "Seller GST Number": "",
+        "Seller Address Line1": "Rampur",
+        "Seller Address Line2": "Uttar Pradesh",
+        "Seller City": "Rampur",
+        "Seller State": "Uttar Pradesh",
+        "Seller Pincode": "244901",
+        "Protect Category Id": "Electronics and Appliances"
+    };
+}
+
+function generateAll() {
+    allTemplates = [];
+    let preview = "";
+    const blocks = document.querySelectorAll(".order-block textarea");
+    blocks.forEach((ta, index) => {
+        try {
+            const order = parseOrder(ta.value);
+            allTemplates.push(order);
+            preview += "Order " + (index + 1) + " (Parsed OK):\n";
+            for (let key in order) {
+                preview += key + ": " + order[key] + "\n";
+            }
+            preview += "\n";
+        } catch (e) {
+            preview += "Order " + (index + 1) + ": ERROR - " + e.message + "\n\n";
+        }
+    });
+    document.getElementById("output").textContent = preview;
+}
+
+function downloadCSV() {
+    if (allTemplates.length === 0) return alert("Please generate orders first.");
+    let csv = Object.keys(allTemplates[0]).join(",") + "\n";
+    allTemplates.forEach(row => {
+        csv += Object.values(row).map(v => '"' + String(v).replace(/"/g, '""') + '"').join(",") + "\n";
+    });
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "Protect_BulkOrders.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function downloadXLSX() {
+    if (allTemplates.length === 0) return alert("Please generate orders first.");
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(allTemplates);
+    XLSX.utils.book_append_sheet(wb, ws, "Orders");
+    XLSX.writeFile(wb, "Protect_BulkOrders.xlsx");
+}
+
+window.onload = () => addOrder();
+
+function sendToDelhivery() {
+    if (allTemplates.length === 0) return alert("Please generate orders first.");
+    
+    let results = "";
+    allTemplates.forEach((order, index) => {
+        const payload = {
+            format: "json",
+            pickup_location: "GAMES PLANET",
+            shipments: [
+                {
+                    order: order["*Sale Order Number"],
+                    payment_mode: order["*Payment Mode"].toLowerCase(),
+                    name: order["*Customer Name"],
+                    address: order["*Shipping Address Line1"],
+                    address_2: order["Shipping Address Line2"],
+                    city: order["*Shipping City"],
+                    state: order["*Shipping State"],
+                    country: "India",
+                    phone: order["*Customer Phone"],
+                    email: order["Customer Email"],
+                    pin: order["*Shipping Pincode"],
+                    products_desc: order["*Item Sku Name"],
+                    total_amount: parseInt(order["*Unit Item Price"]),
+                    cod_amount: parseInt(order["COD Amount"]),
+                    quantity: parseInt(order["*Quantity Ordered"]),
+                    weight: parseInt(order["Weight (gm)"]),
+                    length: parseInt(order["Length (cm)"]),
+                    breadth: parseInt(order["Breadth (cm)"]),
+                    height: parseInt(order["Height (cm)"])
+                }
+            ]
+        };
+
+        fetch("https://track.delhivery.com/api/cmu/create.json", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Token 0585e70152d32c9cc34a44c16e41c62c297b3c80"
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.packages && data.packages[0] && data.packages[0].waybill) {
+                results += "Order " + (index+1) + ": Success ✅ - AWB: " + data.packages[0].waybill + "\n";
+            } else {
+                results += "Order " + (index+1) + ": ❌ Failed - " + JSON.stringify(data) + "\n";
+            }
+            document.getElementById("output").textContent = results;
+        })
+        .catch(err => {
+            results += "Order " + (index+1) + ": ❌ Error - " + err + "\n";
+            document.getElementById("output").textContent = results;
+        });
+    });
+    
+}
+</script>
+<div style="margin-top:40px;padding:15px;border-top:2px solid #ccc;">
+<h3>📦 Track &amp; Share Order by AWB</h3>
+<input id="awbInput" placeholder="Enter AWB Number" style="width:250px;padding:6px;" type="text"/>
+<input id="phoneInput" placeholder="Enter Mobile Number" style="width:250px;padding:6px;" type="text"/>
+<br/><br/>
+<button onclick="generateTracking()">Generate Tracking Link</button>
+<button onclick="copyTracking()">Copy</button>
+<button onclick="clearTracking()">Clear</button>
+<br/><br/>
+<textarea cols="80" id="trackingMessage" placeholder="Tracking message will appear here..." readonly="" rows="4"></textarea>
+<br/><br/>
+<a href="#" id="whatsappSend" style="font-weight:bold;color:green;" target="_blank">📲 Send via WhatsApp</a>
+</div>
+<script>
+function generateTracking() {
+    const awb = document.getElementById('awbInput').value.trim();
+    const phone = document.getElementById('phoneInput').value.trim();
+    if (!awb || !phone) {
+        alert("Please enter both AWB and mobile number");
+        return;
+    }
+    const trackUrl = `https://www.delhivery.com/track/package/${awb}`;
+    const msg = `Hi! Your order has been shipped. Track it here: ${trackUrl}`;
+    document.getElementById('trackingMessage').value = msg;
+    document.getElementById('whatsappSend').href = `https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`;
+}
+
+function copyTracking() {
+    const txt = document.getElementById('trackingMessage');
+    txt.select();
+    txt.setSelectionRange(0, 99999);
+    document.execCommand("copy");
+    alert("Copied to clipboard!");
+}
+
+function clearTracking() {
+    document.getElementById('awbInput').value = '';
+    document.getElementById('phoneInput').value = '';
+    document.getElementById('trackingMessage').value = '';
+    document.getElementById('whatsappSend').href = '#';
+}
+</script>
+<!-- Invoice PDF Generator -->
+<div style="margin-top:40px;padding:15px;border-top:2px solid #ccc;">
+<h3>🧾 Download Invoice (PDF)</h3>
+<button onclick="generateInvoice()">Download Invoice PDF</button>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+function generateInvoice() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    if (!window.orders || !window.orders.length) {
+        alert("Please generate orders first.");
+        return;
+    }
+
+    let order = window.orders[0]; // Only first order
+
+    let y = 10;
+    doc.setFontSize(18);
+    doc.text("GAMES PLANET", 10, y);
+    doc.setFontSize(10);
+    y += 6;
+    doc.text("Email: gamesplanet.7983624797@gmail.com | Phone: 7983624797", 10, y);
+    y += 5;
+    doc.text("Rampur, Uttar Pradesh - 244901", 10, y);
+    y += 10;
+
+    doc.setFontSize(14);
+    doc.text("INVOICE", 90, y);
+    y += 10;
+
+    doc.setFontSize(10);
+    doc.text("Order ID: " + order["*Sale Order Number"], 10, y); y += 5;
+    doc.text("Customer: " + order["*Customer Name"], 10, y); y += 5;
+    doc.text("Phone: " + order["*Customer Phone"], 10, y); y += 5;
+    doc.text("Email: " + (order["Customer Email"] || "-"), 10, y); y += 5;
+    doc.text("Shipping Address:", 10, y); y += 5;
+    doc.text(order["*Shipping Address Line1"], 10, y); y += 5;
+    doc.text(order["Shipping Address Line2"], 10, y); y += 5;
+    doc.text(order["*Shipping City"] + ", " + order["*Shipping State"] + " - " + order["*Shipping Pincode"], 10, y); y += 8;
+
+    doc.text("Product: " + order["*Item Sku Name"], 10, y); y += 5;
+    doc.text("Variant: " + order["*Item Sku Code"], 10, y); y += 5;
+    doc.text("Base Price: ₹" + order["*Unit Item Price"], 10, y); y += 5;
+    if (order["COD Amount"] !== "0") {
+        doc.text("Advance Paid: ₹" + (parseInt(order["*Unit Item Price"]) - parseInt(order["COD Amount"])), 10, y); y += 5;
+        doc.text("COD on Delivery: ₹" + order["COD Amount"], 10, y); y += 5;
+    } else {
+        doc.text("Paid in Full: ₹" + order["*Unit Item Price"], 10, y); y += 5;
+    }
+
+    y += 5;
+    doc.text("Estimated Delivery: 5 to 10 days minimum (depends on location)", 10, y); y += 5;
+    doc.text("GST: NIL", 10, y); y += 5;
+    doc.text("Place of Supply: " + order["*Shipping State"], 10, y); y += 5;
+
+    if (order.awb) {
+        y += 5;
+        doc.text("AWB: " + order.awb, 10, y); y += 5;
+        doc.textWithLink("Track: https://www.delhivery.com/track/package/" + order.awb, 10, y, {
+            url: "https://www.delhivery.com/track/package/" + order.awb
+        });
+    }
+
+    doc.save("GamesPlanet_Invoice.pdf");
+}
+</script></body>
+</html>
