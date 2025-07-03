@@ -77,14 +77,18 @@ function parseOrder(input) {
     let length = "", breadth = "", height = "", weight = "";
     if (product.includes("M33")) {
         length = 17; breadth = 12; height = 11; weight = 465;
-    } else if (product.includes("GD30v2 Special")) {
+    } else if (product.includes("GD30v3 Special")) {
         length = 17; breadth = 12; height = 12; weight = 800;
-    } else if (product.includes("GD30")) {
+    } else if (product.includes("GD30v3")) {
         length = 17; breadth = 12; height = 12; weight = 489;
     } else if (product.includes("FMCB") || product.includes("USB")) {
         length = 10; breadth = 10; height = 2; weight = 100;
     } else if (product.toLowerCase().includes("gamepad")) {
         length = 17; breadth = 10; height = 5; weight = 200;
+    } else if (product.toLowerCase().includes("GAMEBOX G11 PRO (VAYAVA)")) {
+        length = 17; breadth = 12; height = 14; weight = 700;
+    } else if (product.toLowerCase().includes("GAMEBOX G10")) {
+        length = 17; breadth = 12; height = 14; weight = 680;
     }
 
     const addressLine2 = `${landmark} | Post: ${postOffice} | Alt: ${altMobile}`.trim();
