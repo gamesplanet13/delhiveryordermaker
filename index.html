@@ -39,7 +39,7 @@ function extractField(text, label) {
 }
 
 function parseOrder(input) {
-    const requiredFields = ["Order ID", "Name", "Mobile", "Address", "Landmark", "Pincode", "State", "District/City", "Post office", "Product", "Variant", "Base Price", "Amount paid"];
+    const requiredFields = ["Order ID", "Name", "Mobile", "Address", "Landmark", "Pincode", "State", "District/City", "Post office", "Product", "Base Price", "Amount paid"];
     let errors = [];
     for (let label of requiredFields) {
         if (!input.match(new RegExp(label + ":", "i"))) {
@@ -62,7 +62,8 @@ function parseOrder(input) {
     const city = extractField(input, "District/City");
     const postOffice = extractField(input, "Post office");
     const product = extractField(input, "Product");
-    const variant = extractField(input, "Variant");
+    let variant = extractField(input, "Variant");
+    if (!variant) variant = "Game Product";
     const basePrice = extractField(input, "Base Price").replace("₹", "").trim();
     const paid = extractField(input, "Amount paid").replace("₹", "").trim();
     const cod = extractField(input, "Rest Amount on Delivery").replace("₹", "").trim() || "0";
@@ -75,20 +76,51 @@ function parseOrder(input) {
     }
 
     let length = "", breadth = "", height = "", weight = "";
-    if (product.includes("M33")) {
+    const lowerProduct = product.toLowerCase();
+let packagingType = "Box";
+const flyerProducts = [
+    "fmcb + usb", "fmcb", "sd card", "usb", "s2 reciever", "flex cables", "power button", "hdmi converter"
+];
+for (let keyword of flyerProducts) {
+    if (lowerProduct.includes(keyword)) {
+        packagingType = "Flyer";
+        break;
+    }
+}
+
+    if (lowerProduct.includes("fmcb + usb")) {
+        length = 15; breadth = 10; height = 5; weight = 300;
+    } else if (lowerProduct.includes("fmcb")) {
+        length = 10; breadth = 10; height = 1; weight = 100;
+    } else if (lowerProduct.includes("sd card") || lowerProduct.includes("usb")) {
+        length = 10; breadth = 10; height = 1; weight = 50;
+    } else if (lowerProduct.includes("m66") || lowerProduct.includes("m33") || lowerProduct.includes("gd10")) {
         length = 17; breadth = 12; height = 11; weight = 465;
-    } else if (product.includes("GD30v3 Special")) {
-        length = 17; breadth = 12; height = 12; weight = 800;
-    } else if (product.includes("GD30v3")) {
-        length = 17; breadth = 12; height = 12; weight = 489;
-    } else if (product.includes("FMCB") || product.includes("USB")) {
-        length = 10; breadth = 10; height = 2; weight = 100;
-    } else if (product.toLowerCase().includes("gamepad")) {
-        length = 17; breadth = 10; height = 5; weight = 200;
-    } else if (product.toLowerCase().includes("GAMEBOX G11 PRO (VAYAVA)")) {
+    } else if (
+        lowerProduct.includes("g10") || lowerProduct.includes("g11") ||
+        lowerProduct.includes("g11pro") || lowerProduct.includes("g11 pro ultimate edition") ||
+        lowerProduct.includes("g11 pro special edition")
+    ) {
         length = 17; breadth = 12; height = 14; weight = 700;
-    } else if (product.toLowerCase().includes("GAMEBOX G10")) {
-        length = 17; breadth = 12; height = 14; weight = 680;
+    } else if (
+        lowerProduct.includes("m22") || lowerProduct.includes("gamestick pro") ||
+        lowerProduct.includes("gamestick lite") || lowerProduct.includes("pandora mini")
+    ) {
+        length = 23; breadth = 17; height = 7; weight = 465;
+    } else if (
+        lowerProduct.includes("m55") || lowerProduct.includes("gd30") ||
+        lowerProduct.includes("gd30 v3") || lowerProduct.includes("gd30 v3 special edition")
+    ) {
+        length = 17; breadth = 12; height = 12; weight = 489;
+    } else if (
+        lowerProduct.includes("mini box 16 bit") ||
+        lowerProduct.includes("sega 16 bit mini u box md")
+    ) {
+        length = 18; breadth = 14; height = 7; weight = 350;
+    } else if (lowerProduct.includes("gd35")) {
+        length = 23; breadth = 17; height = 7; weight = 550;
+    } else if (lowerProduct.includes("r35s") || lowerProduct.includes("r36s")) {
+        length = 14; breadth = 10; height = 4; weight = 350;
     }
 
     const addressLine2 = `${landmark} | Post: ${postOffice} | Alt: ${altMobile}`.trim();
@@ -109,7 +141,7 @@ function parseOrder(input) {
         "*Item Sku Code": variant,
         "*Item Sku Name": product + " – " + variant,
         "*Quantity Ordered": 1,
-        "Packaging Type": "Flyer",
+        "Packaging Type": packagingType,
         "*Unit Item Price": basePrice,
         "Length (cm)": length,
         "Breadth (cm)": breadth,
@@ -134,7 +166,7 @@ function parseOrder(input) {
         "Seller City": "Rampur",
         "Seller State": "Uttar Pradesh",
         "Seller Pincode": "244901"
-        // NO Protect Category Id
+        // Protect Category Id": "14"
     };
 }
 
