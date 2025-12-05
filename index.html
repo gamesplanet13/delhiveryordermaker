@@ -1,387 +1,989 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Bulk Order CSV Generator</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    textarea { width: 100%; height: 160px; margin-bottom: 10px; font-size: 14px; }
-    button { padding: 10px 15px; margin: 5px 5px 15px 0; }
-    pre { background-color: #f4f4f4; padding: 10px; white-space: pre-wrap; font-size: 13px; }
-    .order-block { border: 1px solid #ccc; padding: 10px; margin-bottom: 15px; }
-</style>
+  <meta charset="UTF-8" />
+  <title>Bulk Order CSV & Invoice Tool — Games Planet</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    :root{
+      --bg:#020617;
+      --card:#020617;
+      --card-soft:#0b1120;
+      --border-soft:#1f2937;
+      --accent:#22c55e;
+      --accent-strong:#16a34a;
+      --accent2:#38bdf8;
+      --text:#e5e7eb;
+      --muted:#9ca3af;
+      --danger:#f97316;
+      --radius-lg:18px;
+      --radius-pill:999px;
+      --shadow-soft:0 20px 40px rgba(0,0,0,0.55);
+      --shadow-btn:0 16px 32px rgba(34,197,94,0.6);
+      --transition-fast:170ms ease-out;
+      --max-width:1100px;
+      --font-main:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    }
+
+    *{box-sizing:border-box;}
+
+    body{
+      margin:0;
+      font-family:var(--font-main);
+      background:
+        radial-gradient(circle at 0% -10%,rgba(56,189,248,.18),transparent 55%),
+        radial-gradient(circle at 110% 0,rgba(34,197,94,.22),transparent 55%),
+        radial-gradient(circle at 50% 120%,rgba(56,189,248,.18),transparent 60%),
+        var(--bg);
+      color:var(--text);
+      -webkit-font-smoothing:antialiased;
+    }
+
+    .shell{
+      max-width:var(--max-width);
+      margin:0 auto;
+      padding:18px 14px 36px;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:16px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .brand-logo{
+      width:40px;
+      height:40px;
+      border-radius:16px;
+      background:conic-gradient(from 210deg,#22c55e,#38bdf8,#a855f7,#22c55e);
+      display:grid;
+      place-items:center;
+      font-weight:800;
+      font-size:0.95rem;
+      color:#020617;
+      box-shadow:
+        0 0 0 1px rgba(15,23,42,0.85),
+        0 18px 36px rgba(0,0,0,0.85);
+    }
+
+    .brand-main{
+      font-size:1.05rem;
+      font-weight:700;
+      letter-spacing:0.08em;
+      text-transform:uppercase;
+    }
+
+    .brand-sub{
+      font-size:0.72rem;
+      color:var(--muted);
+      letter-spacing:0.18em;
+      text-transform:uppercase;
+    }
+
+    .top-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      justify-content:flex-end;
+    }
+
+    .pill{
+      padding:6px 10px;
+      border-radius:var(--radius-pill);
+      border:1px solid rgba(148,163,184,0.5);
+      font-size:0.75rem;
+      color:var(--muted);
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      background:rgba(15,23,42,0.9);
+    }
+
+    .pill-dot{
+      width:7px;
+      height:7px;
+      border-radius:999px;
+      background-color:var(--accent);
+      box-shadow:0 0 0 4px rgba(34,197,94,0.28);
+    }
+
+    .btn-top{
+      padding:7px 12px;
+      border-radius:var(--radius-pill);
+      border:1px solid rgba(148,163,184,0.7);
+      font-size:0.78rem;
+      font-weight:600;
+      background:linear-gradient(135deg,rgba(15,23,42,0.98),rgba(15,23,42,0.94));
+      color:var(--text);
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      cursor:pointer;
+      box-shadow:0 12px 28px rgba(15,23,42,0.9);
+      transition:
+        transform var(--transition-fast),
+        box-shadow var(--transition-fast),
+        border-color var(--transition-fast),
+        background var(--transition-fast);
+    }
+
+    .btn-top:hover{
+      transform:translateY(-1px);
+      border-color:rgba(229,231,235,0.9);
+      box-shadow:0 18px 38px rgba(15,23,42,1);
+    }
+
+    h1{
+      margin:0;
+      font-size:1.25rem;
+      letter-spacing:0.06em;
+      text-transform:uppercase;
+    }
+
+    .sub-head{
+      margin-top:4px;
+      font-size:0.8rem;
+      color:var(--muted);
+    }
+
+    .layout{
+      display:grid;
+      grid-template-columns:minmax(0,2.1fr) minmax(0,1.6fr);
+      gap:18px;
+      align-items:flex-start;
+      margin-top:18px;
+    }
+
+    @media(max-width:900px){
+      .layout{
+        grid-template-columns:1fr;
+      }
+    }
+
+    .card{
+      background:
+        radial-gradient(circle at 0 0,rgba(56,189,248,0.16),transparent 60%),
+        radial-gradient(circle at 100% 0,rgba(34,197,94,0.16),transparent 60%),
+        var(--card-soft);
+      border-radius:var(--radius-lg);
+      padding:14px 14px 16px;
+      border:1px solid rgba(31,41,55,0.95);
+      box-shadow:var(--shadow-soft);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .card h2{
+      margin:0 0 6px;
+      font-size:0.98rem;
+      letter-spacing:0.08em;
+      text-transform:uppercase;
+    }
+
+    .card p.desc{
+      margin:0 0 10px;
+      font-size:0.8rem;
+      color:var(--muted);
+    }
+
+    .order-block{
+      border-radius:12px;
+      border:1px solid rgba(55,65,81,0.95);
+      background:rgba(15,23,42,0.98);
+      padding:8px 8px 10px;
+      margin-bottom:10px;
+    }
+
+    .order-block textarea{
+      width:100%;
+      min-height:130px;
+      border-radius:10px;
+      border:1px solid rgba(75,85,99,0.9);
+      background:#020617;
+      color:var(--text);
+      padding:8px;
+      font-size:0.8rem;
+      resize:vertical;
+    }
+
+    .order-block textarea::placeholder{
+      color:#6b7280;
+    }
+
+    .btn-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin:8px 0 4px;
+    }
+
+    .btn{
+      padding:7px 11px;
+      border-radius:12px;
+      border:none;
+      font-size:0.8rem;
+      font-weight:600;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      white-space:nowrap;
+      transition:
+        transform var(--transition-fast),
+        box-shadow var(--transition-fast),
+        background var(--transition-fast),
+        color var(--transition-fast);
+    }
+
+    .btn-primary{
+      background:linear-gradient(135deg,var(--accent),var(--accent-strong));
+      color:#022c22;
+      box-shadow:var(--shadow-btn);
+    }
+
+    .btn-primary:hover{
+      transform:translateY(-1px);
+      box-shadow:0 20px 42px rgba(34,197,94,0.75);
+    }
+
+    .btn-ghost{
+      background:rgba(15,23,42,0.8);
+      border:1px solid rgba(75,85,99,0.95);
+      color:var(--text);
+    }
+
+    .btn-ghost:hover{
+      transform:translateY(-1px);
+      background:rgba(15,23,42,1);
+      box-shadow:0 16px 30px rgba(15,23,42,1);
+    }
+
+    .btn-soft{
+      background:rgba(15,23,42,0.9);
+      border:1px solid rgba(55,65,81,0.9);
+      color:var(--muted);
+    }
+
+    .btn-soft:hover{
+      background:rgba(30,64,175,0.3);
+      color:var(--text);
+      transform:translateY(-1px);
+    }
+
+    pre#output{
+      margin:8px 0 0;
+      padding:10px;
+      border-radius:12px;
+      background:#020617;
+      border:1px solid rgba(31,41,55,0.95);
+      font-size:0.78rem;
+      color:var(--muted);
+      max-height:340px;
+      overflow:auto;
+      white-space:pre-wrap;
+    }
+
+    .section-title{
+      font-size:0.92rem;
+      letter-spacing:0.08em;
+      text-transform:uppercase;
+      margin-bottom:4px;
+    }
+
+    .field-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin:6px 0;
+    }
+
+    label{
+      font-size:0.78rem;
+      color:var(--muted);
+    }
+
+    input[type="text"], select, textarea.small{
+      border-radius:10px;
+      border:1px solid rgba(55,65,81,0.95);
+      background:#020617;
+      color:var(--text);
+      padding:7px 8px;
+      font-size:0.8rem;
+      width:100%;
+    }
+
+    textarea.small{
+      min-height:70px;
+      resize:vertical;
+    }
+
+    .half{
+      flex:1 1 170px;
+    }
+
+    .full{
+      flex:1 1 100%;
+    }
+
+    a#whatsappSend{
+      font-size:0.82rem;
+      color:#22c55e;
+      font-weight:600;
+      text-decoration:none;
+    }
+
+    a#whatsappSend:hover{
+      text-decoration:underline;
+    }
+
+    .note{
+      font-size:0.72rem;
+      color:var(--muted);
+      margin-top:4px;
+    }
+
+    .badge-small{
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      padding:2px 7px;
+      border-radius:var(--radius-pill);
+      border:1px solid rgba(148,163,184,0.7);
+      background:rgba(15,23,42,0.95);
+      font-size:0.7rem;
+      color:var(--muted);
+      margin-bottom:4px;
+    }
+
+    .badge-small span{
+      width:6px;
+      height:6px;
+      border-radius:999px;
+      background:var(--accent2);
+    }
+
+    .footer{
+      margin-top:18px;
+      font-size:0.72rem;
+      color:var(--muted);
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      border-top:1px solid rgba(15,23,42,0.95);
+      padding-top:10px;
+    }
+  </style>
 </head>
 <body>
-<h2>Paste Each Order Below (COD or Prepaid)</h2>
-<div id="ordersContainer"></div>
-<button onclick="addOrder()">+ Add Another Order</button>
-<button onclick="generateAll()">Generate All</button>
-<button onclick="downloadCSV()">Download CSV</button>
-<button onclick="downloadXLSX()">Download XLSX</button>
-<button onclick="sendToDelhivery()">Send to Delhivery</button>
-<h2>All Orders Preview:</h2>
-<pre id="output"></pre>
+<div class="shell">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo">GP</div>
+      <div>
+        <div class="brand-main">Games Planet</div>
+        <div class="brand-sub">Bulk Orders • CSV • Invoice</div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <div class="pill">
+        <span class="pill-dot"></span>
+        Paste WhatsApp format → Get CSV / Invoice
+      </div>
+      <button class="btn-top" type="button" onclick="addOrder()">
+        ➕ Add Order Block
+      </button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- LEFT: Order Input + Actions -->
+    <section class="card">
+      <h2>Step 1 — Paste Orders</h2>
+      <p class="desc">
+        Har customer ka WhatsApp order format yaha paste karein. Same format jisme
+        <b>Order ID, Name, Mobile, Address, Product, Base Price</b> etc. aata hai.
+      </p>
+
+      <div id="ordersContainer"></div>
+
+      <div class="btn-row">
+        <button class="btn btn-soft" type="button" onclick="addOrder()">+ Add Another Order</button>
+        <button class="btn btn-primary" type="button" onclick="generateAll()">Generate All</button>
+        <button class="btn btn-ghost" type="button" onclick="downloadCSV()">Download CSV</button>
+        <button class="btn btn-ghost" type="button" onclick="downloadXLSX()">Download XLSX</button>
+      </div>
+
+      <div class="badge-small">
+        <span></span> Parsed Orders Preview
+      </div>
+      <pre id="output"></pre>
+    </section>
+
+    <!-- RIGHT: Tracking + Invoice -->
+    <section class="card">
+      <h2>Step 2 — Tracking & Invoice</h2>
+      <p class="desc">
+        Pehle <b>Generate All</b> dabaye. Fir yaha se tracking message aur invoice PDF ready karein.
+      </p>
+
+      <!-- Tracking Block -->
+      <div style="margin-top:8px;">
+        <div class="section-title">📦 Track & Share by AWB</div>
+        <p class="desc" style="margin-bottom:6px;">
+          Select order, AWB daalein, optional ETA text (distance / dates) paste karein, aur auto message banega.
+        </p>
+
+        <div class="field-row">
+          <div class="half">
+            <label for="orderSelect">Select Order</label>
+            <select id="orderSelect">
+              <option value="">-- Generate All ke baad yaha list aayegi --</option>
+            </select>
+          </div>
+          <div class="half">
+            <label for="awbInput">AWB Number</label>
+            <input id="awbInput" type="text" placeholder="Enter AWB Number" />
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="full">
+            <label for="etaInput">Distance / ETA / Delivery Window (optional)</label>
+            <textarea id="etaInput" class="small" placeholder="Example:
+📏 Distance: 1168 km
+⏳ COD Order ETA: 7–10 days
+📅 Estimated Delivery: 12 Dec to 15 Dec"></textarea>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" type="button" onclick="generateTracking()">Generate Tracking Message</button>
+          <button class="btn btn-ghost" type="button" onclick="copyTracking()">Copy</button>
+          <button class="btn btn-soft" type="button" onclick="clearTracking()">Clear</button>
+        </div>
+
+        <textarea id="trackingMessage" class="small" rows="4" readonly placeholder="Tracking message will appear here..."></textarea>
+        <div style="margin-top:6px;">
+          <a id="whatsappSend" href="#" target="_blank">📲 Send via WhatsApp</a>
+        </div>
+        <div class="note">
+          WhatsApp link me <b>customer ka mobile</b> automatically use hoga (jo order input se aaya hai).
+        </div>
+      </div>
+
+      <!-- Invoice Block -->
+      <div style="margin-top:20px;padding-top:10px;border-top:1px solid rgba(30,41,59,0.95);">
+        <div class="section-title">🧾 Invoice PDF</div>
+        <p class="desc">
+          Invoice hamesha <b>selected order</b> ke liye banega (jo upar tracking me select hai). Agar koi select nahi, to pehla order use hoga.
+        </p>
+        <button class="btn btn-primary" type="button" onclick="generateInvoice()">Download Invoice PDF</button>
+        <div class="note">
+          Invoice me agar AWB set hai (tracking generate karte waqt), to wo bhi print hoga + track link bhi.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>© Games Planet • Internal Bulk Order Helper</span>
+    <span>CSV / XLSX upload ready for Delhivery panel (manual upload)</span>
+  </footer>
+</div>
+
 <script>
 let allTemplates = [];
+// also keep full parsed orders for invoice/tracking usage
+window.orders = [];
+window.lastSelectedOrderIndex = null;
 
 function addOrder(text = "") {
-    const container = document.getElementById("ordersContainer");
-    const block = document.createElement("div");
-    block.className = "order-block";
-    block.innerHTML = '<textarea placeholder="Paste order info...">' + text + '</textarea>';
-    container.appendChild(block);
+  const container = document.getElementById("ordersContainer");
+  const block = document.createElement("div");
+  block.className = "order-block";
+  block.innerHTML =
+    '<textarea placeholder="Paste order info...">' + (text || "") + "</textarea>";
+  container.appendChild(block);
 }
 
 function extractField(text, label) {
-    const regex = new RegExp(label + ":\s*(.+)", "i");
-    const match = text.match(regex);
-    return match ? match[1].trim() : "";
+  const regex = new RegExp(label + ":\\s*(.+)", "i"); // escape \s
+  const match = text.match(regex);
+  return match ? match[1].trim() : "";
 }
 
 function parseOrder(input) {
-    const requiredFields = ["Order ID", "Name", "Mobile", "Address", "Landmark", "Pincode", "State", "District/City", "Post office", "Product", "Base Price", "Amount paid"];
-    let errors = [];
-    for (let label of requiredFields) {
-        if (!input.match(new RegExp(label + ":", "i"))) {
-            errors.push(label);
-        }
+  const requiredFields = [
+    "Order ID",
+    "Name",
+    "Mobile",
+    "Address",
+    "Landmark",
+    "Pincode",
+    "State",
+    "District/City",
+    "Post office",
+    "Product",
+    "Base Price",
+    "Amount paid"
+  ];
+  let errors = [];
+  for (let label of requiredFields) {
+    if (!input.match(new RegExp(label + ":", "i"))) {
+      errors.push(label);
     }
-    if (errors.length > 0) {
-        throw new Error("Missing: " + errors.join(", "));
-    }
+  }
+  if (errors.length > 0) {
+    throw new Error("Missing: " + errors.join(", "));
+  }
 
-    const orderID = extractField(input, "Order ID");
-    const name = extractField(input, "Name");
-    const mobile = extractField(input, "Mobile");
-    const altMobile = extractField(input, "Alt Mobile");
-    const email = extractField(input, "Email");
-    const address = extractField(input, "Address");
-    const landmark = extractField(input, "Landmark");
-    const pincode = extractField(input, "Pincode");
-    const state = extractField(input, "State");
-    const city = extractField(input, "District/City");
-    const postOffice = extractField(input, "Post office");
-    const product = extractField(input, "Product");
-    let variant = extractField(input, "Variant");
-    if (!variant) variant = "Game Product";
-    const basePrice = extractField(input, "Base Price").replace("₹", "").trim();
-    const paid = extractField(input, "Amount paid").replace("₹", "").trim();
-    const cod = extractField(input, "Rest Amount on Delivery").replace("₹", "").trim() || "0";
+  const orderID = extractField(input, "Order ID");
+  const name = extractField(input, "Name");
+  const mobile = extractField(input, "Mobile");
+  const altMobile = extractField(input, "Alt Mobile");
+  const email = extractField(input, "Email");
+  const address = extractField(input, "Address");
+  const landmark = extractField(input, "Landmark");
+  const pincode = extractField(input, "Pincode");
+  const state = extractField(input, "State");
+  const city = extractField(input, "District/City");
+  const postOffice = extractField(input, "Post office");
+  const product = extractField(input, "Product");
+  let variant = extractField(input, "Variant");
+  if (!variant) variant = "Game Product";
+  const basePrice = extractField(input, "Base Price").replace("₹", "").trim();
+  const paid = extractField(input, "Amount paid").replace("₹", "").trim();
+  let cod = extractField(input, "Rest Amount on Delivery");
+if (!cod) cod = extractField(input, "Rest on Delivery");
+cod = (cod || "0").replace("₹", "").trim();
 
-    let paymentMode = "COD";
-    let codAmount = cod;
-    if (input.includes("🟢") || input.toLowerCase().includes("prepaid")) {
-        paymentMode = "Prepaid";
-        codAmount = "0";
-    }
+  let paymentMode = "COD";
+  let codAmount = cod;
+  if (input.includes("🟢") || input.toLowerCase().includes("prepaid")) {
+    paymentMode = "Prepaid";
+    codAmount = "0";
+  }
 
-    let length = "", breadth = "", height = "", weight = "";
-    const lowerProduct = product.toLowerCase();
-let packagingType = "Box";
-const flyerProducts = [
-    "fmcb + usb", "fmcb", "sd card", "usb", "s2 reciever", "flex cables", "power button", "hdmi converter"
-];
-for (let keyword of flyerProducts) {
+  let length = "";
+  let breadth = "";
+  let height = "";
+  let weight = "";
+  const lowerProduct = product.toLowerCase();
+
+  // default packaging type
+  let packagingType = "Box";
+  const flyerProducts = [
+    "fmcb + usb",
+    "fmcb",
+    "sd card",
+    "usb",
+    "s2 reciever",
+    "flex cables",
+    "power button",
+    "hdmi converter"
+  ];
+  for (let keyword of flyerProducts) {
     if (lowerProduct.includes(keyword)) {
-        packagingType = "Flyer";
-        break;
+      packagingType = "Flyer";
+      break;
     }
-}
+  }
 
-    if (lowerProduct.includes("fmcb + usb")) {
-        length = 15; breadth = 10; height = 5; weight = 300;
-    } else if (lowerProduct.includes("fmcb")) {
-        length = 10; breadth = 10; height = 1; weight = 100;
-    } else if (lowerProduct.includes("sd card") || lowerProduct.includes("usb")) {
-        length = 10; breadth = 10; height = 1; weight = 50;
-    } else if (lowerProduct.includes("m66") || lowerProduct.includes("m33") || lowerProduct.includes("gd10")) {
-        length = 17; breadth = 12; height = 11; weight = 465;
-    } else if (
-        lowerProduct.includes("g10") || lowerProduct.includes("g11") ||
-        lowerProduct.includes("g11pro") || lowerProduct.includes("g11 pro ultimate edition") ||
-        lowerProduct.includes("g11 pro special edition")
-    ) {
-        length = 17; breadth = 12; height = 14; weight = 700;
-    } else if (
-        lowerProduct.includes("m22") || lowerProduct.includes("gamestick pro") ||
-        lowerProduct.includes("gamestick lite") || lowerProduct.includes("pandora mini")
-    ) {
-        length = 23; breadth = 17; height = 7; weight = 465;
-    } else if (
-        lowerProduct.includes("m55") || lowerProduct.includes("gd30") ||
-        lowerProduct.includes("gd30 v3") || lowerProduct.includes("gd30 v3 special edition")
-    ) {
-        length = 17; breadth = 12; height = 12; weight = 489;
-    } else if (
-        lowerProduct.includes("mini box 16 bit") ||
-        lowerProduct.includes("sega 16 bit mini u box md")
-    ) {
-        length = 18; breadth = 14; height = 7; weight = 350;
-    } else if (lowerProduct.includes("gd35")) {
-        length = 23; breadth = 17; height = 7; weight = 550;
-    } else if (lowerProduct.includes("r35s") || lowerProduct.includes("r36s")) {
-        length = 14; breadth = 10; height = 4; weight = 350;
-    }
+  // Dimension rules
+  if (lowerProduct.includes("fmcb + usb")) {
+    length = 15; breadth = 10; height = 5; weight = 300;
+  } else if (lowerProduct.includes("fmcb")) {
+    length = 10; breadth = 10; height = 1; weight = 100;
+  } else if (lowerProduct.includes("sd card") || lowerProduct.includes("usb")) {
+    length = 10; breadth = 10; height = 1; weight = 50;
+  } else if (lowerProduct.includes("m66") || lowerProduct.includes("m33") || lowerProduct.includes("gd10")) {
+    length = 17; breadth = 12; height = 11; weight = 465;
+  } else if (
+    lowerProduct.includes("g10") ||
+    lowerProduct.includes("g11") ||
+    lowerProduct.includes("g11pro") ||
+    lowerProduct.includes("g11 pro ultimate edition") ||
+    lowerProduct.includes("g11 pro special edition")
+  ) {
+    length = 17; breadth = 12; height = 14; weight = 700;
+  } else if (
+    lowerProduct.includes("m22") ||
+    lowerProduct.includes("gamestick pro") ||
+    lowerProduct.includes("gamestick lite") ||
+    lowerProduct.includes("pandora mini") ||
+    lowerProduct.includes("gs5 mini")
+  ) {
+    // M22 / GameStick Pro / Lite / Pandora Mini / GS5 MINI
+    length = 23; breadth = 17; height = 7; weight = 465;
+  } else if (
+    lowerProduct.includes("m55") ||
+    lowerProduct.includes("gd30") ||
+    lowerProduct.includes("gd30 v3") ||
+    lowerProduct.includes("gd30 v3 special edition")
+  ) {
+    length = 17; breadth = 12; height = 12; weight = 489;
+  } else if (
+    lowerProduct.includes("mini box 16 bit") ||
+    lowerProduct.includes("sega 16 bit mini u box md")
+  ) {
+    length = 18; breadth = 14; height = 7; weight = 350;
+  } else if (lowerProduct.includes("gd35")) {
+    length = 23; breadth = 17; height = 7; weight = 550;
+  } else if (lowerProduct.includes("r35s") || lowerProduct.includes("r36s")) {
+    length = 14; breadth = 10; height = 4; weight = 350;
+  } else if (lowerProduct.includes("m88")) {
+    // M88 / M88 128GB
+    length = 24; breadth = 17; height = 7; weight = 500;
+  }
 
-    const addressLine2 = `${landmark} | Post: ${postOffice} | Alt: ${altMobile}`.trim();
+  const addressLine2 = `${landmark} | Post: ${postOffice} | Alt: ${altMobile}`.trim();
 
-    return {
-        "*Sale Order Number": orderID,
-        "*Pickup Location Name": "GAMES PLANET",
-        "*Transport Mode": "SURFACE",
-        "*Payment Mode": paymentMode,
-        "COD Amount": codAmount,
-        "*Customer Name": name,
-        "*Customer Phone": mobile,
-        "*Shipping Address Line1": address,
-        "Shipping Address Line2": addressLine2,
-        "*Shipping City": city,
-        "*Shipping State": state,
-        "*Shipping Pincode": pincode,
-        "*Item Sku Code": variant,
-        "*Item Sku Name": product + " – " + variant,
-        "*Quantity Ordered": 1,
-        "Packaging Type": packagingType,
-        "*Unit Item Price": basePrice,
-        "Length (cm)": length,
-        "Breadth (cm)": breadth,
-        "Height (cm)": height,
-        "Weight (gm)": weight,
-        "Fragile Shipment": "No",
-        "Discount Type": "",
-        "Discount Value": "",
-        "Tax Class Code": "",
-        "Customer Email": email,
-        "Billing Address same as Shipping Address": "Yes",
-        "Billing Address Line1": address,
-        "Billing Address Line2": addressLine2,
-        "Billing City": city,
-        "Billing State": state,
-        "Billing Pincode": pincode,
-        "e-Way Bill Number": "",
-        "Seller Name": "Games Planet",
-        "Seller GST Number": "",
-        "Seller Address Line1": "Rampur",
-        "Seller Address Line2": "Uttar Pradesh",
-        "Seller City": "Rampur",
-        "Seller State": "Uttar Pradesh",
-        "Seller Pincode": "244901"
-        // Protect Category Id": "14"
-    };
+  return {
+    "*Sale Order Number": orderID,
+    "*Pickup Location Name": "GAMES PLANET",
+    "*Transport Mode": "SURFACE",
+    "*Payment Mode": paymentMode,
+    "COD Amount": codAmount,
+    "*Customer Name": name,
+    "*Customer Phone": mobile,
+    "*Shipping Address Line1": address,
+    "Shipping Address Line2": addressLine2,
+    "*Shipping City": city,
+    "*Shipping State": state,
+    "*Shipping Pincode": pincode,
+    "*Item Sku Code": variant,
+    "*Item Sku Name": product + " – " + variant,
+    "*Quantity Ordered": 1,
+    "Packaging Type": packagingType,
+    "*Unit Item Price": basePrice,
+    "Length (cm)": length,
+    "Breadth (cm)": breadth,
+    "Height (cm)": height,
+    "Weight (gm)": weight,
+    "Fragile Shipment": "No",
+    "Discount Type": "",
+    "Discount Value": "",
+    "Tax Class Code": "",
+    "Customer Email": email,
+    "Billing Address same as Shipping Address": "Yes",
+    "Billing Address Line1": address,
+    "Billing Address Line2": addressLine2,
+    "Billing City": city,
+    "Billing State": state,
+    "Billing Pincode": pincode,
+    "e-Way Bill Number": "",
+    "Seller Name": "Games Planet",
+    "Seller GST Number": "",
+    "Seller Address Line1": "Rampur",
+    "Seller Address Line2": "Uttar Pradesh",
+    "Seller City": "Rampur",
+    "Seller State": "Uttar Pradesh",
+    "Seller Pincode": "244901"
+    // "Protect Category Id": "14"
+  };
 }
 
 function generateAll() {
-    allTemplates = [];
-    let preview = "";
-    const blocks = document.querySelectorAll(".order-block textarea");
-    blocks.forEach((ta, index) => {
-        try {
-            const order = parseOrder(ta.value);
-            allTemplates.push(order);
-            preview += "Order " + (index + 1) + " (Parsed OK):\n";
-            for (let key in order) {
-                preview += key + ": " + order[key] + "\n";
-            }
-            preview += "\n";
-        } catch (e) {
-            preview += "Order " + (index + 1) + ": ERROR - " + e.message + "\n\n";
-        }
-    });
-    document.getElementById("output").textContent = preview;
+  allTemplates = [];
+  window.orders = [];
+  let preview = "";
+  const blocks = document.querySelectorAll(".order-block textarea");
+  if (!blocks.length) {
+    alert("Please add at least one order block.");
+    return;
+  }
+
+  blocks.forEach((ta, index) => {
+    try {
+      const order = parseOrder(ta.value);
+      allTemplates.push(order);
+      window.orders.push(order);
+      preview += "Order " + (index + 1) + " (Parsed OK):\n";
+      for (let key in order) {
+        preview += key + ": " + order[key] + "\n";
+      }
+      preview += "\n";
+    } catch (e) {
+      preview += "Order " + (index + 1) + ": ERROR - " + e.message + "\n\n";
+    }
+  });
+  document.getElementById("output").textContent = preview;
+
+  // Populate select for tracking
+  populateOrderSelect();
+}
+
+function populateOrderSelect() {
+  const sel = document.getElementById("orderSelect");
+  sel.innerHTML = "";
+  if (!window.orders || !window.orders.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "-- No orders parsed yet --";
+    sel.appendChild(opt);
+    return;
+  }
+  window.orders.forEach((o, idx) => {
+    const opt = document.createElement("option");
+    opt.value = idx;
+    opt.textContent =
+      "Order " +
+      (idx + 1) +
+      " — " +
+      (o["*Sale Order Number"] || "NoID") +
+      " — " +
+      (o["*Customer Name"] || "NoName");
+    sel.appendChild(opt);
+  });
+  // default select first
+  sel.value = "0";
+  window.lastSelectedOrderIndex = 0;
 }
 
 function downloadCSV() {
-    if (allTemplates.length === 0) return alert("Please generate orders first.");
-    let csv = Object.keys(allTemplates[0]).join(",") + "\n";
-    allTemplates.forEach(row => {
-        csv += Object.values(row).map(v => '"' + String(v).replace(/"/g, '""') + '"').join(",") + "\n";
-    });
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", "BulkOrders.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  if (allTemplates.length === 0)
+    return alert("Please generate orders first.");
+  let csv = Object.keys(allTemplates[0]).join(",") + "\n";
+  allTemplates.forEach((row) => {
+    csv +=
+      Object.values(row)
+        .map((v) => '"' + String(v).replace(/"/g, '""') + '"')
+        .join(",") + "\n";
+  });
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", "BulkOrders.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 function downloadXLSX() {
-    if (allTemplates.length === 0) return alert("Please generate orders first.");
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(allTemplates);
-    XLSX.utils.book_append_sheet(wb, ws, "Orders");
-    XLSX.writeFile(wb, "BulkOrders.xlsx");
+  if (allTemplates.length === 0)
+    return alert("Please generate orders first.");
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(allTemplates);
+  XLSX.utils.book_append_sheet(wb, ws, "Orders");
+  XLSX.writeFile(wb, "BulkOrders.xlsx");
 }
 
-window.onload = () => addOrder();
+window.onload = () => {
+  addOrder();
+};
 
-function sendToDelhivery() {
-    if (allTemplates.length === 0) return alert("Please generate orders first.");
-    
-    let results = "";
-    allTemplates.forEach((order, index) => {
-        const payload = {
-            format: "json",
-            pickup_location: "GAMES PLANET",
-            shipments: [
-                {
-                    order: order["*Sale Order Number"],
-                    payment_mode: order["*Payment Mode"].toLowerCase(),
-                    name: order["*Customer Name"],
-                    address: order["*Shipping Address Line1"],
-                    address_2: order["Shipping Address Line2"],
-                    city: order["*Shipping City"],
-                    state: order["*Shipping State"],
-                    country: "India",
-                    phone: order["*Customer Phone"],
-                    email: order["Customer Email"],
-                    pin: order["*Shipping Pincode"],
-                    products_desc: order["*Item Sku Name"],
-                    total_amount: parseInt(order["*Unit Item Price"]),
-                    cod_amount: parseInt(order["COD Amount"]),
-                    quantity: parseInt(order["*Quantity Ordered"]),
-                    weight: parseInt(order["Weight (gm)"]),
-                    length: parseInt(order["Length (cm)"]),
-                    breadth: parseInt(order["Breadth (cm)"]),
-                    height: parseInt(order["Height (cm)"])
-                }
-            ]
-        };
-
-        fetch("https://track.delhivery.com/api/cmu/create.json", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": "Token 0585e70152d32c9cc34a44c16e41c62c297b3c80"
-            },
-            body: JSON.stringify(payload)
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data && data.packages && data.packages[0] && data.packages[0].waybill) {
-                results += "Order " + (index+1) + ": Success ✅ - AWB: " + data.packages[0].waybill + "\n";
-            } else {
-                results += "Order " + (index+1) + ": ❌ Failed - " + JSON.stringify(data) + "\n";
-            }
-            document.getElementById("output").textContent = results;
-        })
-        .catch(err => {
-            results += "Order " + (index+1) + ": ❌ Error - " + err + "\n";
-            document.getElementById("output").textContent = results;
-        });
-    });
-}
-</script>
-<div style="margin-top:40px;padding:15px;border-top:2px solid #ccc;">
-<h3>📦 Track &amp; Share Order by AWB</h3>
-<input id="awbInput" placeholder="Enter AWB Number" style="width:250px;padding:6px;" type="text"/>
-<input id="phoneInput" placeholder="Enter Mobile Number" style="width:250px;padding:6px;" type="text"/>
-<br/><br/>
-<button onclick="generateTracking()">Generate Tracking Link</button>
-<button onclick="copyTracking()">Copy</button>
-<button onclick="clearTracking()">Clear</button>
-<br/><br/>
-<textarea cols="80" id="trackingMessage" placeholder="Tracking message will appear here..." readonly="" rows="4"></textarea>
-<br/><br/>
-<a href="#" id="whatsappSend" style="font-weight:bold;color:green;" target="_blank">📲 Send via WhatsApp</a>
-</div>
-<script>
+// ===== Tracking Message =====
 function generateTracking() {
-    const awb = document.getElementById('awbInput').value.trim();
-    const phone = document.getElementById('phoneInput').value.trim();
-    if (!awb || !phone) {
-        alert("Please enter both AWB and mobile number");
-        return;
-    }
-    const trackUrl = `https://www.delhivery.com/track/package/${awb}`;
-    const msg = `Hi! Your order has been shipped. Track it here: ${trackUrl}`;
-    document.getElementById('trackingMessage').value = msg;
-    document.getElementById('whatsappSend').href = `https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`;
+  const awb = document.getElementById("awbInput").value.trim();
+  const etaText = document.getElementById("etaInput").value.trim();
+  const sel = document.getElementById("orderSelect");
+
+  if (!window.orders || !window.orders.length) {
+    alert("Please generate orders first.");
+    return;
+  }
+
+  let index = sel.value !== "" ? parseInt(sel.value, 10) : 0;
+  if (isNaN(index) || !window.orders[index]) index = 0;
+
+  const order = window.orders[index];
+
+  if (!awb) {
+    alert("Please enter AWB number.");
+    return;
+  }
+
+  const name = order["*Customer Name"] || "Customer";
+  const orderId = order["*Sale Order Number"] || "";
+  const phone = order["*Customer Phone"] || "";
+
+  const trackUrl = "https://www.delhivery.com/track/package/" + encodeURIComponent(awb);
+
+  // Save AWB on order for invoice usage
+  order.awb = awb;
+  window.lastSelectedOrderIndex = index;
+
+  // final message
+  let msg = "";
+  msg += "Dear " + name + ",\n";
+  msg +=
+    "Your order No. " +
+    orderId +
+    " has been ready for dispatch with AWB No. " +
+    awb +
+    ".\n";
+  msg += "Courier partner is Delhivery.\n\n";
+
+  if (etaText) {
+    msg += etaText + "\n\n";
+  }
+
+  msg += "You can track your order here:\n" + trackUrl + "\n\n";
+  msg += "It will reach to your address soon.\n\n";
+  msg += "Thank you so much.\n";
+  msg += "- Games Planet";
+
+  const txtArea = document.getElementById("trackingMessage");
+  txtArea.value = msg;
+
+  // WhatsApp link with customer mobile (from input)
+  if (phone) {
+    const waUrl =
+      "https://wa.me/91" + encodeURIComponent(phone) + "?text=" + encodeURIComponent(msg);
+    document.getElementById("whatsappSend").href = waUrl;
+  } else {
+    document.getElementById("whatsappSend").href = "#";
+  }
 }
 
 function copyTracking() {
-    const txt = document.getElementById('trackingMessage');
-    txt.select();
-    txt.setSelectionRange(0, 99999);
-    document.execCommand("copy");
-    alert("Copied to clipboard!");
+  const txt = document.getElementById("trackingMessage");
+  if (!txt.value.trim()) {
+    alert("No tracking message to copy.");
+    return;
+  }
+  txt.focus();
+  txt.select();
+  txt.setSelectionRange(0, 99999);
+  document.execCommand("copy");
+  alert("Copied to clipboard!");
 }
 
 function clearTracking() {
-    document.getElementById('awbInput').value = '';
-    document.getElementById('phoneInput').value = '';
-    document.getElementById('trackingMessage').value = '';
-    document.getElementById('whatsappSend').href = '#';
+  document.getElementById("awbInput").value = "";
+  document.getElementById("etaInput").value = "";
+  document.getElementById("trackingMessage").value = "";
+  document.getElementById("whatsappSend").href = "#";
 }
-</script>
-<!-- Invoice PDF Generator -->
-<div style="margin-top:40px;padding:15px;border-top:2px solid #ccc;">
-<h3>🧾 Download Invoice (PDF)</h3>
-<button onclick="generateInvoice()">Download Invoice PDF</button>
-</div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
+// ===== Invoice PDF Generator =====
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 function generateInvoice() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
 
-    if (!window.orders || !window.orders.length) {
-        alert("Please generate orders first.");
-        return;
-    }
+  if (!window.orders || !window.orders.length) {
+    alert("Please generate orders first.");
+    return;
+  }
 
-    let order = window.orders[0]; // Only first order
+  // use selected order if any, else first
+  const sel = document.getElementById("orderSelect");
+  let index = (typeof window.lastSelectedOrderIndex === "number")
+    ? window.lastSelectedOrderIndex
+    : 0;
+  if (sel && sel.value !== "") {
+    const v = parseInt(sel.value, 10);
+    if (!isNaN(v) && window.orders[v]) index = v;
+  }
+  const order = window.orders[index];
 
-    let y = 10;
-    doc.setFontSize(18);
-    doc.text("GAMES PLANET", 10, y);
-    doc.setFontSize(10);
-    y += 6;
-    doc.text("Email: gamesplanet.7983624797@gmail.com | Phone: 7983624797", 10, y);
+  let y = 10;
+  doc.setFontSize(18);
+  doc.text("GAMES PLANET", 10, y);
+  doc.setFontSize(10);
+  y += 6;
+  doc.text(
+    "Email: gamesplanet.7983624797@gmail.com | Phone: 7983624797",
+    10,
+    y
+  );
+  y += 5;
+  doc.text("Rampur, Uttar Pradesh - 244901", 10, y);
+  y += 10;
+
+  doc.setFontSize(14);
+  doc.text("INVOICE", 90, y);
+  y += 10;
+
+  doc.setFontSize(10);
+  doc.text("Order ID: " + (order["*Sale Order Number"] || ""), 10, y);
+  y += 5;
+  doc.text("Customer: " + (order["*Customer Name"] || ""), 10, y);
+  y += 5;
+  doc.text("Phone: " + (order["*Customer Phone"] || ""), 10, y);
+  y += 5;
+  doc.text("Email: " + (order["Customer Email"] || "-"), 10, y);
+  y += 5;
+  doc.text("Shipping Address:", 10, y);
+  y += 5;
+  doc.text(order["*Shipping Address Line1"] || "", 10, y);
+  y += 5;
+  doc.text(order["Shipping Address Line2"] || "", 10, y);
+  y += 5;
+  doc.text(
+    (order["*Shipping City"] || "") +
+      ", " +
+      (order["*Shipping State"] || "") +
+      " - " +
+      (order["*Shipping Pincode"] || ""),
+    10,
+    y
+  );
+  y += 8;
+
+  doc.text("Product: " + (order["*Item Sku Name"] || ""), 10, y);
+  y += 5;
+  doc.text("Variant: " + (order["*Item Sku Code"] || ""), 10, y);
+  y += 5;
+  doc.text("Base Price: ₹" + (order["*Unit Item Price"] || "0"), 10, y);
+  y += 5;
+
+  if (order["COD Amount"] && order["COD Amount"] !== "0") {
+    const total = parseInt(order["*Unit Item Price"] || "0", 10) || 0;
+    const cod = parseInt(order["COD Amount"] || "0", 10) || 0;
+    const adv = total - cod;
+    doc.text("Advance Paid: ₹" + String(adv), 10, y);
     y += 5;
-    doc.text("Rampur, Uttar Pradesh - 244901", 10, y);
-    y += 10;
-
-    doc.setFontSize(14);
-    doc.text("INVOICE", 90, y);
-    y += 10;
-
-    doc.setFontSize(10);
-    doc.text("Order ID: " + order["*Sale Order Number"], 10, y); y += 5;
-    doc.text("Customer: " + order["*Customer Name"], 10, y); y += 5;
-    doc.text("Phone: " + order["*Customer Phone"], 10, y); y += 5;
-    doc.text("Email: " + (order["Customer Email"] || "-"), 10, y); y += 5;
-    doc.text("Shipping Address:", 10, y); y += 5;
-    doc.text(order["*Shipping Address Line1"], 10, y); y += 5;
-    doc.text(order["Shipping Address Line2"], 10, y); y += 5;
-    doc.text(order["*Shipping City"] + ", " + order["*Shipping State"] + " - " + order["*Shipping Pincode"], 10, y); y += 8;
-
-    doc.text("Product: " + order["*Item Sku Name"], 10, y); y += 5;
-    doc.text("Variant: " + order["*Item Sku Code"], 10, y); y += 5;
-    doc.text("Base Price: ₹" + order["*Unit Item Price"], 10, y); y += 5;
-    if (order["COD Amount"] !== "0") {
-        doc.text("Advance Paid: ₹" + (parseInt(order["*Unit Item Price"]) - parseInt(order["COD Amount"])), 10, y); y += 5;
-        doc.text("COD on Delivery: ₹" + order["COD Amount"], 10, y); y += 5;
-    } else {
-        doc.text("Paid in Full: ₹" + order["*Unit Item Price"], 10, y); y += 5;
-    }
-
+    doc.text("COD on Delivery: ₹" + String(cod), 10, y);
     y += 5;
-    doc.text("Estimated Delivery: 5 to 10 days minimum (depends on location)", 10, y); y += 5;
-    doc.text("GST: NIL", 10, y); y += 5;
-    doc.text("Place of Supply: " + order["*Shipping State"], 10, y); y += 5;
+  } else {
+    doc.text(
+      "Paid in Full: ₹" + (order["*Unit Item Price"] || "0"),
+      10,
+      y
+    );
+    y += 5;
+  }
 
-    if (order.awb) {
-        y += 5;
-        doc.text("AWB: " + order.awb, 10, y); y += 5;
-        doc.textWithLink("Track: https://www.delhivery.com/track/package/" + order.awb, 10, y, {
-            url: "https://www.delhivery.com/track/package/" + order.awb
-        });
-    }
+  y += 5;
+  doc.text(
+    "Estimated Delivery: 5 to 10 days minimum (depends on location)",
+    10,
+    y
+  );
+  y += 5;
+  doc.text("GST: NIL", 10, y);
+  y += 5;
+  doc.text(
+    "Place of Supply: " + (order["*Shipping State"] || ""),
+    10,
+    y
+  );
+  y += 5;
 
-    doc.save("GamesPlanet_Invoice.pdf");
+  if (order.awb) {
+    y += 5;
+    const awb = String(order.awb);
+    doc.text("AWB: " + awb, 10, y);
+    y += 5;
+    const url = "https://www.delhivery.com/track/package/" + awb;
+    doc.textWithLink("Track: " + url, 10, y, { url });
+  }
+
+  doc.save("GamesPlanet_Invoice.pdf");
 }
 </script>
 </body>
