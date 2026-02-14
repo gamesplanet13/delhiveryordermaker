@@ -560,7 +560,12 @@ function parseOrder(input) {
   let variant = extractField(input, "Variant");
   if (!variant) variant = "Game Product";
   const basePrice = extractField(input, "Base Price").replace("₹", "").trim();
-  const paid = extractField(input, "Amount paid").replace("₹", "").trim();
+  let paid =
+  extractField(input, "Amount paid") ||
+  extractField(input, "Amount Paid \\(Advance\\)") ||
+  extractField(input, "Advance Paid");
+
+paid = (paid || "0").replace("₹", "").trim();
   let cod = extractField(input, "Rest Amount on Delivery");
 if (!cod) cod = extractField(input, "Rest on Delivery");
 cod = (cod || "0").replace("₹", "").trim();
@@ -598,51 +603,85 @@ cod = (cod || "0").replace("₹", "").trim();
   }
 
   // Dimension rules
-  if (lowerProduct.includes("fmcb + usb")) {
-    length = 15; breadth = 10; height = 5; weight = 300;
-  } else if (lowerProduct.includes("fmcb")) {
-    length = 10; breadth = 10; height = 1; weight = 100;
-  } else if (lowerProduct.includes("sd card") || lowerProduct.includes("usb")) {
-    length = 10; breadth = 10; height = 1; weight = 50;
-  } else if (lowerProduct.includes("m66") || lowerProduct.includes("m33") || lowerProduct.includes("gd10")) {
-    length = 17; breadth = 12; height = 11; weight = 465;
-  } else if (
-    lowerProduct.includes("g10") ||
-    lowerProduct.includes("g11") ||
-    lowerProduct.includes("g11pro") ||
-    lowerProduct.includes("g11 pro ultimate edition") ||
-    lowerProduct.includes("g11 pro special edition")
-  ) {
-    length = 17; breadth = 12; height = 14; weight = 700;
-  } else if (
-    lowerProduct.includes("m22") ||
-    lowerProduct.includes("gamestick pro") ||
-    lowerProduct.includes("gamestick lite") ||
-    lowerProduct.includes("pandora mini") ||
-    lowerProduct.includes("gs5 mini")
-  ) {
-    // M22 / GameStick Pro / Lite / Pandora Mini / GS5 MINI
-    length = 23; breadth = 17; height = 7; weight = 465;
-  } else if (
-    lowerProduct.includes("m55") ||
-    lowerProduct.includes("gd30") ||
-    lowerProduct.includes("gd30 v3") ||
-    lowerProduct.includes("gd30 v3 special edition")
-  ) {
-    length = 17; breadth = 12; height = 12; weight = 489;
-  } else if (
-    lowerProduct.includes("mini box 16 bit") ||
-    lowerProduct.includes("sega 16 bit mini u box md")
-  ) {
-    length = 18; breadth = 14; height = 7; weight = 350;
-  } else if (lowerProduct.includes("gd35")) {
-    length = 23; breadth = 17; height = 7; weight = 550;
-  } else if (lowerProduct.includes("r35s") || lowerProduct.includes("r36s")) {
-    length = 14; breadth = 10; height = 4; weight = 350;
-  } else if (lowerProduct.includes("m88")) {
-    // M88 / M88 128GB
-    length = 24; breadth = 17; height = 7; weight = 500;
-  }
+ // ===== PRODUCT DIMENSION & WEIGHT LOGIC (FINAL) =====
+
+if (
+  lowerProduct.includes("sticker") ||
+  lowerProduct.includes("controller") ||
+  lowerProduct.includes("fmcb + usb")
+) {
+  length = 15; breadth = 10; height = 5; weight = 200;
+  packagingType = "Flyer";
+
+} else if (
+  lowerProduct.includes("fmcb") ||
+  lowerProduct.includes("sata converter") ||
+  lowerProduct.includes("ps2 network adapter")
+) {
+  length = 10; breadth = 10; height = 1; weight = 50;
+  packagingType = "Flyer";
+
+} else if (
+  lowerProduct.includes("sd card") ||
+  lowerProduct.includes("usb")
+) {
+  length = 10; breadth = 10; height = 1; weight = 50;
+  packagingType = "Flyer";
+
+} else if (
+  lowerProduct.includes("gd10") ||
+  lowerProduct.includes("m33") ||
+  lowerProduct.includes("m66")
+) {
+  length = 17; breadth = 12; height = 11; weight = 465;
+
+} else if (
+  lowerProduct.includes("g10") ||
+  lowerProduct.includes("g11") ||
+  lowerProduct.includes("g11 pro") ||
+  lowerProduct.includes("g11pro") ||
+  lowerProduct.includes("g11 pro ultimate edition") ||
+  lowerProduct.includes("g11 pro special edition")
+) {
+  length = 17; breadth = 12; height = 14; weight = 700;
+
+} else if (
+  lowerProduct.includes("m22") ||
+  lowerProduct.includes("pandora mini") ||
+  lowerProduct.includes("pandora pro") ||
+  lowerProduct.includes("m8") ||
+  lowerProduct.includes("m15") ||
+  lowerProduct.includes("gamestick pro") ||
+  lowerProduct.includes("gamestick lite") ||
+  lowerProduct.includes("gs5 mini")
+) {
+  length = 23; breadth = 17; height = 7; weight = 465;
+
+} else if (
+  lowerProduct.includes("gd30") ||
+  lowerProduct.includes("gd30 v3") ||
+  lowerProduct.includes("gd30 v3 special edition")
+) {
+  length = 17; breadth = 12; height = 12; weight = 489;
+
+} else if (
+  lowerProduct.includes("mini box 16 bit") ||
+  lowerProduct.includes("sega 16 bit mini u box md")
+) {
+  length = 18; breadth = 14; height = 7; weight = 350;
+
+} else if (lowerProduct.includes("gd35")) {
+  length = 23; breadth = 17; height = 7; weight = 550;
+
+} else if (
+  lowerProduct.includes("r35s") ||
+  lowerProduct.includes("r36s")
+) {
+  length = 14; breadth = 10; height = 4; weight = 350;
+
+} else if (lowerProduct.includes("m88")) {
+  length = 24; breadth = 17; height = 7; weight = 500;
+}
 
   const addressLine2 = `${landmark} | Post: ${postOffice} | Alt: ${altMobile}`.trim();
 
