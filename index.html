@@ -549,7 +549,16 @@ function parseOrder(input) {
   const name = extractField(input, "Name");
   const mobile = extractField(input, "Mobile");
   const altMobile = extractField(input, "Alt Mobile");
-  const email = extractField(input, "Email");
+  let email = extractField(input, "Email");
+
+  if (!email || email.trim() === "") {
+  email = "ac@gmail.com";
+}
+
+// Safety: max 128 chars (Delhivery limit)
+if (email.length > 128) {
+  email = "ac@gmail.com";
+}
   const address = extractField(input, "Address");
   const landmark = extractField(input, "Landmark");
   const pincode = extractField(input, "Pincode");
