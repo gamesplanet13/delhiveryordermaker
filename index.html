@@ -562,7 +562,7 @@ function parseOrder(input) {
   const basePrice = extractField(input, "Base Price").replace("₹", "").trim();
   let paid =
   extractField(input, "Amount paid") ||
-  extractField(input, "Amount Paid \\(Advance\\)") ||
+  extractField(input, "Amount Paid (Advance)") ||
   extractField(input, "Advance Paid");
 
 paid = (paid || "0").replace("₹", "").trim();
