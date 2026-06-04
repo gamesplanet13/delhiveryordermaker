@@ -447,6 +447,10 @@
             <select id="orderSelect">
               <option value="">-- Generate All ke baad yaha list aayegi --</option>
             </select>
+          <div style="display:flex;gap:6px;margin-top:22px;">
+              <button class="btn btn-soft" type="button" onclick="prevOrder()">⬅ Prev</button>
+              <button class="btn btn-soft" type="button" onclick="nextOrder()">Next ➡</button>
+            </div>
           </div>
           <div class="half">
             <label for="awbInput">AWB Number</label>
@@ -477,6 +481,7 @@
         <div class="note">
           WhatsApp link me <b>customer ka mobile</b> automatically use hoga (jo order input se aaya hai).
         </div>
+        
       </div>
 
       <!-- Invoice Block -->
@@ -915,6 +920,19 @@ function clearTracking() {
   document.getElementById("etaInput").value = "";
   document.getElementById("trackingMessage").value = "";
   document.getElementById("whatsappSend").href = "#";
+}
+
+
+
+function prevOrder(){
+ const sel=document.getElementById('orderSelect');
+ if(!sel || sel.selectedIndex<=0) return;
+ sel.selectedIndex--;
+}
+function nextOrder(){
+ const sel=document.getElementById('orderSelect');
+ if(!sel || sel.selectedIndex>=sel.options.length-1) return;
+ sel.selectedIndex++;
 }
 
 // ===== Invoice PDF Generator =====
