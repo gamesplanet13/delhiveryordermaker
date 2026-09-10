@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>Bulk Order CSV & Invoice Tool — Games Planet</title>
+  <title>All-in-One Courier Order Tool — Games Planet</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     :root{
@@ -329,6 +329,29 @@
       flex:1 1 170px;
     }
 
+    .mode-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      padding:10px;
+      margin:10px 0 12px;
+      border:1px solid rgba(56,189,248,.35);
+      border-radius:14px;
+      background:rgba(2,6,23,.7);
+    }
+
+    .mode-grid label{display:block;margin-bottom:5px;font-weight:700;color:#cbd5e1;}
+    .mode-grid select,.mode-grid input{min-height:40px;font-size:.9rem;}
+    .reverse-settings{grid-column:1/-1;display:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+    .reverse-settings.show{display:grid;}
+    .status-line{margin:8px 0 0;font-size:.78rem;color:#7dd3fc;}
+
+    @media(max-width:620px){
+      .mode-grid{grid-template-columns:1fr;}
+      .reverse-settings{grid-template-columns:1fr;}
+      .btn{min-height:42px;justify-content:center;}
+    }
+
     .full{
       flex:1 1 100%;
     }
@@ -389,7 +412,7 @@
       <div class="brand-logo">GP</div>
       <div>
         <div class="brand-main">Games Planet</div>
-        <div class="brand-sub">Bulk Orders • CSV • Invoice</div>
+        <div class="brand-sub">Delhivery • BigShip • Forward • Reverse</div>
       </div>
     </div>
     <div class="top-actions">
@@ -412,6 +435,44 @@
         <b>Order ID, Name, Mobile, Address, Product, Base Price</b> etc. aata hai.
       </p>
 
+      <div class="mode-grid">
+        <div>
+          <label for="platformSelect">Courier Platform</label>
+          <select id="platformSelect" onchange="updateModeUI()">
+            <option value="delhivery">Delhivery</option>
+            <option value="bigship">BigShip</option>
+          </select>
+        </div>
+        <div>
+          <label for="directionSelect">Order Type</label>
+          <select id="directionSelect" onchange="updateModeUI()">
+            <option value="forward">Forward Order</option>
+            <option value="reverse">Reverse Order</option>
+          </select>
+        </div>
+        <div id="reverseSettings" class="reverse-settings">
+          <div class="full" style="grid-column:1/-1;">
+            <div id="reverseRoutingNote" class="status-line">Pickup: Customer address from pasted order → Return: Games Planet</div>
+          </div>
+          <div>
+            <label for="returnLocation">Return Location / Shop Name</label>
+            <input id="returnLocation" type="text" value="GAMES PLANET" />
+          </div>
+          <div>
+            <label for="reverseReason">Reverse Reason</label>
+            <input id="reverseReason" type="text" value="DAMAGED_PRODUCT" />
+          </div>
+          <div>
+            <label for="shopPhone">Games Planet Phone</label>
+            <input id="shopPhone" type="text" value="7983624797" />
+          </div>
+          <div>
+            <label for="shopAddress">Games Planet Return / Seller Address</label>
+            <input id="shopAddress" type="text" value="GURUDWARA ROAD CIVIL LINES Rampur Uttar Pradesh IN 244901" />
+          </div>
+        </div>
+      </div>
+
       <div id="ordersContainer"></div>
 
       <div class="btn-row">
@@ -420,6 +481,8 @@
         <button class="btn btn-ghost" type="button" onclick="downloadCSV()">Download CSV</button>
         <button class="btn btn-ghost" type="button" onclick="downloadXLSX()">Download XLSX</button>
       </div>
+
+      <div id="modeStatus" class="status-line">Delhivery • Forward Order</div>
 
       <div class="badge-small">
         <span></span> Parsed Orders Preview
@@ -500,7 +563,7 @@
 
   <footer class="footer">
     <span>© Games Planet • Internal Bulk Order Helper</span>
-    <span>CSV / XLSX upload ready for Delhivery panel (manual upload)</span>
+    <span>Delhivery / BigShip • Forward / Reverse • CSV / XLSX ready</span>
   </footer>
 </div>
 
@@ -1055,6 +1118,344 @@ function generateInvoice() {
 
   doc.save("GamesPlanet_Invoice.pdf");
 }
+</script>
+
+<script>
+// ===== Games Planet All-in-One Courier Export (v2) =====
+const DELHIVERY_REVERSE_HEADERS = [
+  "*Reverse Order Number","*Customer name","Customer Email ID","*Customer Phone Number",
+  "*Customer Address Line 1","Customer Address Line 2","*Customer Pincode","*Customer State",
+  "*Customer City","*Return Location","*Item SKU code","*Item SKU Name","*Item Unit Price",
+  "*Quantity Returned","Length (cm)","Breadth (cm)","Height (cm)","Weight (gm)",
+  "Fragile Shipment","*Reasons for return","Notes for quality analysis"
+];
+
+const BIGSHIP_HEADERS = [
+  "Order_ID/Invoice_No","Order_Date","Receiver_Email","Receiver_Company_Name","Receiver_Mobile",
+  "Receiver_Address_1","Receiver_Address_2","Pincode","Landmark","Payment_Mode","Box_Weight(kg)",
+  "Length(cm)","Breadth(cm)","Height(cm)","Product_Name","Category","HSN_Code","Quantity",
+  "Amount","Total_Amount","Collectable_Amount","Error_Message"
+];
+
+function field(text, labels) {
+  const list = Array.isArray(labels) ? labels : [labels];
+  for (const label of list) {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = text.match(new RegExp("^[ \\t]*" + escaped + "[ \\t]*:[ \\t]*(.*)$", "im"));
+    if (match) return match[1].trim();
+  }
+  return "";
+}
+
+function addressField(text) {
+  const match = text.match(/^\s*Address\s*:\s*([\s\S]*?)(?=\n\s*(?:Landmark|Pincode|State|District\/City|City|Post office|Product)\s*:)/im);
+  return match ? match[1].replace(/\s*\n\s*/g, " ").trim() : field(text, "Address");
+}
+
+function cleanMoney(value) {
+  const cleaned = String(value || "0").replace(/,/g, "").replace(/₹/g, "").replace(/[^0-9.]/g, "");
+  const number = Number.parseFloat(cleaned || "0");
+  return Number.isFinite(number) ? String(Math.round(number)) : "0";
+}
+
+function cleanPhone(value) {
+  let raw = String(value || "").trim();
+  raw = raw.replace(/^\s*\+91[\s-]*/, ""); // remove only explicit +91 prefix
+  const digits = raw.replace(/\D/g, "");
+  return digits.length > 10 ? digits.slice(-10) : digits;
+}
+
+function safeText(value, max = 100) {
+  return String(value || "")
+    .normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9 .\/#_]/g, " ")
+    .replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+function safeProduct(value, max = 55) {
+  return String(value || "")
+    .normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9\-./,#_ ]/g, " ")
+    .replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+function shortProductName(product, variant) {
+  let text = (product || "") + " " + (variant || "");
+  const lower = text.toLowerCase();
+  const parts = [];
+  if (/memory card|fmcb|funtuna/.test(lower)) {
+    parts.push(/9x{2,}|90000|9xxxx/.test(lower) ? "FMCB 90000" : "FMCB Card");
+  }
+  if (/wireless controller|wl controller/.test(lower)) parts.push("WL Controller");
+  else if (/wired controller/.test(lower)) parts.push("Wired Controller");
+  else if (/controller/.test(lower)) parts.push("Controller");
+  if (/hdmi converter/.test(lower)) parts.push("HDMI Converter");
+  if (/s2\s*receiver|s2\s*reciever/.test(lower)) parts.push("S2 Receiver");
+  if (/yc6|yc5|y6c|y5c/.test(lower)) parts.push("YC Receiver");
+  if (/usb|pendrive|pen drive/.test(lower)) {
+    const size = text.match(/\b(?:32|64|128|256|500)\s*(?:GB|TB)\b/i);
+    parts.push((size ? size[0].replace(/\s+/g, "") + " " : "") + "USB");
+  }
+  const model = text.match(/\b(?:GD10|GD30(?:\s*V3)?|GD35|G11(?:\s*Pro)?|GS5(?:\s*Mini|\s*Pro)?|M22(?:\s*V3)?|M33|M55|M66|M88|G90|R35S|R36S|R36\s*Ultra)\b/i);
+  if (model) parts.push(model[0].replace(/\s+/g, " ").toUpperCase());
+  if (!parts.length) {
+    text = text.replace(/\bx\s*\d+\b/gi, " ").replace(/[()]/g, " ");
+    parts.push(text);
+  }
+  return safeProduct([...new Set(parts)].join(", ")) || "Game Product";
+}
+
+function inferPackage(text, product) {
+  const dimText = field(text, ["Recommended Box", "Box Dimensions", "Dimensions", "Approx. Unit Dimensions"]);
+  const nums = dimText.match(/\d+(?:\.\d+)?/g);
+  let length = nums && nums[0] ? Number(nums[0]) : 0;
+  let breadth = nums && nums[1] ? Number(nums[1]) : 0;
+  let height = nums && nums[2] ? Number(nums[2]) : 0;
+
+  let weightGm = 0;
+  const weightText = field(text, ["Packed Weight", "Products Weight", "Total Weight", "Unit Weight"]);
+  const weightMatch = weightText.match(/([0-9.]+)\s*(kg|g)/i);
+  if (weightMatch) weightGm = Math.round(Number(weightMatch[1]) * (weightMatch[2].toLowerCase() === "kg" ? 1000 : 1));
+
+  const p = (product || "").toLowerCase();
+  if (!length || !breadth || !height || !weightGm) {
+    if (/controller/.test(p)) { length ||= 8; breadth ||= 13; height ||= 17; weightGm ||= 250; }
+    else if (/fmcb|memory card|funtuna|sd card|usb|jb disc/.test(p)) { length ||= 10; breadth ||= 10; height ||= 1; weightGm ||= 50; }
+    else if (/gd10|m33|m66/.test(p)) { length ||= 17; breadth ||= 12; height ||= 11; weightGm ||= 465; }
+    else if (/g11|g10/.test(p)) { length ||= 17; breadth ||= 12; height ||= 14; weightGm ||= 700; }
+    else if (/m22|pandora|m15|m8|gs5/.test(p)) { length ||= 23; breadth ||= 17; height ||= 7; weightGm ||= 465; }
+    else if (/gd30/.test(p)) { length ||= 17; breadth ||= 12; height ||= 12; weightGm ||= 489; }
+    else if (/gd35/.test(p)) { length ||= 23; breadth ||= 17; height ||= 7; weightGm ||= 550; }
+    else if (/g90/.test(p)) { length ||= 28; breadth ||= 14; height ||= 6; weightGm ||= 596; }
+    else if (/r35s|r36s/.test(p)) { length ||= 14; breadth ||= 10; height ||= 4; weightGm ||= 350; }
+    else if (/m88/.test(p)) { length ||= 24; breadth ||= 17; height ||= 7; weightGm ||= 500; }
+  }
+  return { length, breadth, height, weightGm, weightKg: Number((weightGm / 1000).toFixed(3)) };
+}
+
+function parseInput(text) {
+  const orderId = field(text, "Order ID");
+  const name = field(text, "Name");
+  const mobile = cleanPhone(field(text, "Mobile"));
+  const altMobile = cleanPhone(field(text, ["Alt Mobile", "Alt. Mobile"]));
+  const email = field(text, "Email") || "ac@gmail.com";
+  const address = field(text, "Address");
+  const fullAddress = addressField(text) || address;
+  const landmark = field(text, "Landmark");
+  const pincode = field(text, "Pincode").replace(/\D/g, "").slice(-6);
+  const state = field(text, "State");
+  const city = field(text, ["District/City", "City"]);
+  const postOffice = field(text, "Post office");
+  const product = field(text, "Product");
+  const variant = field(text, "Variant");
+  const basePrice = cleanMoney(field(text, "Base Price"));
+  const amountPaid = cleanMoney(field(text, ["Amount Paid", "Amount paid", "Amount Paid (Advance)", "Advance Paid"]));
+  const finalTotal = cleanMoney(field(text, ["Final Order Total", "Amount Paid", "Amount paid", "Base Price"]));
+  const codAmount = cleanMoney(field(text, ["Rest Amount on Delivery", "Rest on Delivery"]));
+  const isPrepaid = /🟢|prepaid/i.test(text) && !/🔴|COD Order/i.test(text);
+  const paymentMode = isPrepaid ? "Prepaid" : "COD";
+  const shortProduct = shortProductName(product, variant);
+  const pkg = inferPackage(text, product + " " + variant);
+  if (!name || mobile.length !== 10 || !address || pincode.length !== 6 || !product) {
+    throw new Error("Name, 10-digit Mobile, Address, 6-digit Pincode and Product required");
+  }
+  return { orderId, name, mobile, altMobile, email, address, landmark, pincode, state, city, postOffice,
+    product, variant, shortProduct, fullAddress, basePrice, amountPaid, finalTotal, codAmount: isPrepaid ? "0" : codAmount, paymentMode, ...pkg };
+}
+
+function splitBigshipAddress(order) {
+  const first = safeText(order.fullAddress || order.address, 90);
+  const second = safeText([order.landmark, order.postOffice ? "Post " + order.postOffice : "", order.altMobile ? "Alt " + order.altMobile : ""].filter(Boolean).join(" "), 90);
+  return [first, second];
+}
+
+function formatDateFromOrderId(orderId) {
+  const s = String(orderId || "");
+  if (/^\d{8}/.test(s)) return `${s.slice(4,8)}-${s.slice(2,4)}-${s.slice(0,2)}`;
+  return new Date().toISOString().slice(0,10);
+}
+
+function delhiveryForward(o) {
+  const line2 = [o.landmark, o.postOffice ? "Post: " + o.postOffice : "", o.altMobile ? "Alt: " + o.altMobile : ""].filter(Boolean).join(" | ");
+  return {
+    "*Sale Order Number":o.orderId,"*Pickup Location Name":"GAMES PLANET","*Transport Mode":"SURFACE",
+    "*Payment Mode":o.paymentMode,"COD Amount":o.codAmount,"*Customer Name":o.name,"*Customer Phone":o.mobile,
+    "*Shipping Address Line1":o.address,"Shipping Address Line2":line2,"*Shipping City":o.city,
+    "*Shipping State":o.state,"*Shipping Pincode":o.pincode,"*Item Sku Code":o.variant || "Game Product",
+    "*Item Sku Name":[o.product,o.variant].filter(Boolean).join(" – "),"*Quantity Ordered":1,"Packaging Type":/fmcb|usb|memory card|sd card/i.test(o.product) && !/controller/i.test(o.product) ? "Flyer" : "Box",
+    "*Unit Item Price":o.basePrice || o.finalTotal,"Length (cm)":o.length,"Breadth (cm)":o.breadth,"Height (cm)":o.height,
+    "Weight (gm)":o.weightGm,"Fragile Shipment":"No","Discount Type":"","Discount Value":"","Tax Class Code":"",
+    "Customer Email":o.email.slice(0,128),"Billing Address same as Shipping Address":"Yes","Billing Address Line1":o.address,
+    "Billing Address Line2":line2,"Billing City":o.city,"Billing State":o.state,"Billing Pincode":o.pincode,
+    "e-Way Bill Number":"","Seller Name":"GAMES PLANET","Seller GST Number":"","Seller Address Line1":"GURUDWARA ROAD CIVIL LINES",
+    "Seller Address Line2":"","Seller City":"Rampur","Seller State":"Uttar Pradesh","Seller Pincode":"244901"
+  };
+}
+
+function makeReverseOrderId(existingOrderId, sequenceIndex) {
+  const sequence = String(sequenceIndex + 1).padStart(2, "0");
+  const existingDigits = String(existingOrderId || "").replace(/\D/g, "");
+  if (existingDigits) {
+    if (existingDigits.endsWith("00")) return existingDigits.slice(0, -2) + sequence;
+    if (existingDigits.length <= 14) return existingDigits + sequence;
+    return existingDigits.slice(0, 14) + sequence;
+  }
+  const now = new Date();
+  const two = value => String(value).padStart(2, "0");
+  const timestamp = two(now.getDate()) + two(now.getMonth() + 1) + now.getFullYear() +
+    two(now.getHours()) + two(now.getMinutes()) + two(now.getSeconds());
+  return timestamp + sequence;
+}
+
+function delhiveryReverse(o, sequenceIndex) {
+  const values = [makeReverseOrderId(o.orderId, sequenceIndex),o.name,o.email,o.mobile,o.fullAddress || o.address,
+    [o.landmark,o.postOffice,o.altMobile ? "Alt " + o.altMobile : ""].filter(Boolean).join(" | "),
+    o.pincode,o.state,o.city,document.getElementById("returnLocation").value.trim() || "GAMES PLANET",
+    o.variant || "Game Product",[o.product,o.variant].filter(Boolean).join(" – "),o.basePrice || o.finalTotal,1,o.length,o.breadth,o.height,o.weightGm,"No",
+    document.getElementById("reverseReason").value.trim() || "DAMAGED_PRODUCT",""
+  ];
+  return Object.fromEntries(DELHIVERY_REVERSE_HEADERS.map((h,i)=>[h,values[i]]));
+}
+
+function bigshipRow(o, reverse, sequenceIndex = 0) {
+  const shopName = safeText(document.getElementById("returnLocation").value || "GAMES PLANET", 60);
+  const shopPhone = cleanPhone(document.getElementById("shopPhone").value || "7983624797");
+  const shopAddress = safeText(document.getElementById("shopAddress").value || "GURUDWARA ROAD CIVIL LINES Rampur Uttar Pradesh IN 244901", 90);
+  const [a1,a2] = splitBigshipAddress(o);
+  const values = reverse ? [
+    makeReverseOrderId(o.orderId, sequenceIndex),formatDateFromOrderId(o.orderId),"gamesplanet.7983624797@gmail.com",shopName,shopPhone,
+    shopAddress,"Rampur","244901","","Prepaid",o.weightKg,o.length,o.breadth,o.height,o.shortProduct,
+    "Gaming Accessories","",1,o.finalTotal,o.finalTotal,"",""
+  ] : [
+    o.orderId,formatDateFromOrderId(o.orderId),o.email,o.name,o.mobile,a1,a2,o.pincode,safeText(o.landmark,50),
+    o.paymentMode,o.weightKg,o.length,o.breadth,o.height,o.shortProduct,"Gaming Accessories","",1,
+    o.finalTotal,o.finalTotal,o.paymentMode === "COD" ? o.codAmount : "",""
+  ];
+  return Object.fromEntries(BIGSHIP_HEADERS.map((h,i)=>[h,values[i]]));
+}
+
+function updateModeUI() {
+  const platform = document.getElementById("platformSelect").value;
+  const direction = document.getElementById("directionSelect").value;
+  document.getElementById("reverseSettings").classList.toggle("show", direction === "reverse");
+  const routeNote = document.getElementById("reverseRoutingNote");
+  if (routeNote) {
+    routeNote.textContent = platform === "bigship"
+      ? "BigShip Reverse needs its official reverse-upload sample; forward B2C format has no customer pickup-address columns."
+      : "Pickup: Customer address from pasted order → Return: Games Planet saved return location";
+  }
+  document.getElementById("modeStatus").textContent = (platform === "bigship" ? "BigShip" : "Delhivery") + " • " + (direction === "reverse" ? "Reverse Order" : "Forward Order");
+  allTemplates = []; window.orders = [];
+  document.getElementById("output").textContent = "Mode changed. Generate All again.";
+}
+
+parseOrder = function(input) { return parseInput(input); };
+
+generateAll = function() {
+  allTemplates = []; window.orders = [];
+  const platform = document.getElementById("platformSelect").value;
+  const reverse = document.getElementById("directionSelect").value === "reverse";
+  if (platform === "bigship" && reverse) {
+    allTemplates = []; window.orders = [];
+    document.getElementById("output").textContent = "BigShip Reverse file not generated: official BigShip reverse-upload sample is required so customer pickup and Games Planet return addresses are not mapped incorrectly.";
+    alert("BigShip Reverse sample required. Delhivery Reverse is ready and correctly maps Customer Pickup to Games Planet Return.");
+    return;
+  }
+  const blocks = document.querySelectorAll(".order-block textarea");
+  let preview = "";
+  blocks.forEach((ta,index)=>{
+    if (!ta.value.trim()) return;
+    try {
+      const parsed = parseInput(ta.value);
+      if (!reverse && !parsed.orderId) throw new Error("Forward order requires Order ID");
+      const sequenceIndex = allTemplates.length;
+      const row = platform === "bigship" ? bigshipRow(parsed,reverse,sequenceIndex) : (reverse ? delhiveryReverse(parsed,sequenceIndex) : delhiveryForward(parsed));
+      allTemplates.push(row);
+      window.orders.push({...row,_parsed:parsed});
+      preview += `Order ${index+1} OK\n`;
+      Object.entries(row).forEach(([k,v])=> preview += `${k}: ${v ?? ""}\n`);
+      preview += "\n";
+    } catch (e) { preview += `Order ${index+1}: ERROR - ${e.message}\n\n`; }
+  });
+  document.getElementById("output").textContent = preview || "No order data found.";
+  populateOrderSelectV2();
+};
+
+function populateOrderSelectV2() {
+  const sel = document.getElementById("orderSelect"); sel.innerHTML = "";
+  window.orders.forEach((o,i)=>{
+    const p = o._parsed || {}; const option = document.createElement("option"); option.value=i;
+    option.textContent = `${p.orderId || "Order"} - ${p.name || "Customer"}`; sel.appendChild(option);
+  });
+  if (window.orders.length) { sel.value="0"; window.lastSelectedOrderIndex=0; }
+}
+
+function csvCell(value) { return '"' + String(value ?? "").replace(/"/g,'""') + '"'; }
+function buildCSV(rows) {
+  const headers = Object.keys(rows[0]);
+  return headers.join(",") + "\n" + rows.map(r=>headers.map(h=>csvCell(r[h])).join(",")).join("\n") + "\n";
+}
+downloadCSV = function() {
+  if (!allTemplates.length) return alert("Generate All first.");
+  const csv = buildCSV(allTemplates);
+  const blob = new Blob([csv],{type:"text/csv;charset=utf-8"}); const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=fileBase()+".csv"; a.click(); URL.revokeObjectURL(url);
+};
+
+downloadXLSX = function() {
+  if (!allTemplates.length) return alert("Generate All first.");
+  const ws=XLSX.utils.json_to_sheet(allTemplates,{header:Object.keys(allTemplates[0])});
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Orders"); XLSX.writeFile(wb,fileBase()+".xlsx");
+};
+
+function fileBase() {
+  const p=document.getElementById("platformSelect").value === "bigship" ? "BigShip" : "Delhivery";
+  const d=document.getElementById("directionSelect").value === "reverse" ? "Reverse" : "Forward";
+  return `${p}_${d}_Orders`;
+}
+
+generateTracking = function() {
+  if (!window.orders.length) return alert("Generate All first.");
+  const index=Number(document.getElementById("orderSelect").value||0); const order=window.orders[index]; const p=order._parsed || {};
+  const awb=document.getElementById("awbInput").value.trim(); if(!awb) return alert("Enter AWB number.");
+  const eta=document.getElementById("etaInput").value.trim();
+  const platform=document.getElementById("platformSelect").value;
+  const partner=platform === "bigship" ? "BigShip" : "Delhivery";
+  const track=platform === "bigship" ? "https://app.bigship.direct/track/" : "https://www.delhivery.com/track/package/" + encodeURIComponent(awb);
+  let msg=`Dear ${p.name || "Customer"},\n\nYour Order No. ${p.orderId || ""} is ready for dispatch with AWB No. ${awb}.\n\nCourier partner: ${partner}\n\n`;
+  if(eta) msg+=eta+"\n\n"; msg+=`You can track your order here:\n${track}\n\nIt will reach your address soon.\n\nThank you so much.\n\n- Games Planet`;
+  document.getElementById("trackingMessage").value=msg;
+  document.getElementById("whatsappSend").href=p.mobile?`https://wa.me/91${p.mobile}?text=${encodeURIComponent(msg)}`:"#";
+};
+
+generateInvoice = function() {
+  if (!window.orders.length) return alert("Generate All first.");
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const index = Number(document.getElementById("orderSelect").value || 0);
+  const p = window.orders[index]._parsed || {};
+  let y = 14;
+  doc.setFontSize(18); doc.text("GAMES PLANET", 12, y); y += 7;
+  doc.setFontSize(10); doc.text("GURUDWARA ROAD CIVIL LINES, Rampur, Uttar Pradesh - 244901 | Phone: 7983624797", 12, y); y += 12;
+  doc.setFontSize(14); doc.text("ORDER INVOICE", 82, y); y += 10;
+  doc.setFontSize(10);
+  [
+    `Order ID: ${p.orderId || ""}`,
+    `Customer: ${p.name || ""}`,
+    `Phone: ${p.mobile || ""}`,
+    `Address: ${p.address || ""}`,
+    `City/State: ${p.city || ""}, ${p.state || ""} - ${p.pincode || ""}`,
+    `Product: ${p.shortProduct || ""}`,
+    `Payment Mode: ${p.paymentMode || ""}`,
+    `Total Amount: Rs. ${p.finalTotal || "0"}`,
+    `COD Collectable: Rs. ${p.codAmount || "0"}`,
+    `Package: ${p.length || 0} x ${p.breadth || 0} x ${p.height || 0} cm, ${p.weightGm || 0} gm`,
+    "GST: NIL"
+  ].forEach(line=>{ const lines=doc.splitTextToSize(line,185); doc.text(lines,12,y); y += lines.length*5; });
+  doc.save(`GamesPlanet_${p.orderId || "Invoice"}.pdf`);
+};
+
+window.onload = function(){ addOrder(); updateModeUI(); };
 </script>
 </body>
 </html>
